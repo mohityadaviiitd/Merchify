@@ -1,0 +1,15 @@
+# .dockerignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+.env
+/static
+/media
+node_modules
+frontend/node_modules
+frontend/.next
+frontend/out
+*.log
