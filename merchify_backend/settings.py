@@ -151,6 +151,8 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:8000',
     'http://127.0.0.1:3000',
+    'http://35.154.145.211:3000',
+    'http://ec2-35-154-145-211.ap-south-1.compute.amazonaws.com:3000',
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -160,7 +162,7 @@ STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
 
 # Frontend base URL for redirects (used by Stripe Checkout)
-FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', 'http://localhost:3000')
+FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', 'http://35.154.145.211:3000')
 
 # Media Files
 MEDIA_URL = '/media/'
