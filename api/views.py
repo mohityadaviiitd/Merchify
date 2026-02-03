@@ -242,7 +242,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 'quantity': item.quantity,
             })
 
-        frontend_base = getattr(settings, 'FRONTEND_BASE_URL', 'http://localhost:3000')
+        frontend_base = getattr(settings, 'FRONTEND_BASE_URL')
         success_url = f"{frontend_base}/checkout-success?session_id={{CHECKOUT_SESSION_ID}}"
         cancel_url = f"{frontend_base}/checkout-cancel"
 

@@ -78,6 +78,7 @@ WSGI_APPLICATION = 'merchify_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -88,6 +89,14 @@ DATABASES = {
         'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
+
+# Use SQLite for local testing
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 
 
 # Password validation
@@ -125,9 +134,14 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 
-STATIC_URL = 'static/'
+
+STATIC_URL = '/static/'
 # Directory where collectstatic will collect static files for production
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+# Additional locations of static files (for development)
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -153,6 +167,8 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://35.154.145.211:3000',
     'http://ec2-35-154-145-211.ap-south-1.compute.amazonaws.com:3000',
+    'http://35.154.145.211:8000',
+    'http://ec2-35-154-145-211.ap-south-1.compute.amazonaws.com:8000',
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -162,7 +178,9 @@ STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
 
 # Frontend base URL for redirects (used by Stripe Checkout)
+# FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', 'http://localhost:3000')
 FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', 'http://35.154.145.211:3000')
+
 
 # Media Files
 MEDIA_URL = '/media/'
