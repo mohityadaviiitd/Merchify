@@ -190,7 +190,7 @@
     }
   ],
   "variable": [
-    { "key": "base_url", "value": "http://ec2-35-154-145-211.ap-south-1.compute.amazonaws.com:8000/api" },
+    { "key": "base_url", "value": "http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:8000/api" },
     { "key": "auth_token", "value": "" }
   ]
 }

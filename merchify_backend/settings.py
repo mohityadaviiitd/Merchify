@@ -59,7 +59,7 @@ SECRET_KEY = 'django-insecure-q#_v405$g+=et!r(6%)xqndsuv_8j$#nw(018g0*9z2ev$1mmf
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['35.154.145.211', 'ec2-35-154-145-211.ap-south-1.compute.amazonaws.com', 'localhost']
+ALLOWED_HOSTS = ['13.233.212.112', 'ec2-13-233-212-112.ap-south-1.compute.amazonaws.com', 'localhost']
 
 
 # Application definition
@@ -198,10 +198,10 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:8000',
     'http://127.0.0.1:3000',
-    'http://35.154.145.211:3000',
-    'http://ec2-35-154-145-211.ap-south-1.compute.amazonaws.com:3000',
-    'http://35.154.145.211:8000',
-    'http://ec2-35-154-145-211.ap-south-1.compute.amazonaws.com:8000',
+    'http://13.233.212.112:3000',
+    'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:3000',
+    'http://13.233.212.112:8000',
+    'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:8000',
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -214,7 +214,7 @@ STRIPE_PUBLISHABLE_KEY = config('STRIPE_PUBLISHABLE_KEY', default=None)
 STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET', default=None)
 
 # Frontend base URL for redirects (used by Stripe Checkout)
-FRONTEND_BASE_URL = config('FRONTEND_BASE_URL', default='http://ec2-35-154-145-211.ap-south-1.compute.amazonaws.com:3000')
+FRONTEND_BASE_URL = config('FRONTEND_BASE_URL', default='http://localhost:3000')
 
 
 
