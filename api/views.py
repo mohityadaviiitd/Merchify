@@ -426,7 +426,7 @@ def dashboard_stats(request):
     total_products = Product.objects.count()
     total_users = User.objects.count()
     total_orders = Order.objects.count()
-    total_revenue = Order.objects.filter(status='completed').aggregate(Sum('total_price'))['total_price__sum'] or 0
+    total_revenue = Order.objects.filter(status__in=['pending', 'completed']).aggregate(Sum('total_price'))['total_price__sum'] or 0
 
     # Order status breakdown
     order_status = Order.objects.values('status').annotate(count=Count('id'))
