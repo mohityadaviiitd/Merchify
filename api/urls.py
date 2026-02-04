@@ -23,5 +23,6 @@ urlpatterns = [
     path('auth/login/', login, name='login'),
     path('auth/current-user/', current_user, name='current-user'),
     path('dashboard/stats/', dashboard_stats, name='dashboard-stats'),
+    path('stripe/webhook/', webhook, name='stripe-webhook'),
     path('', include(router.urls)),
 ]

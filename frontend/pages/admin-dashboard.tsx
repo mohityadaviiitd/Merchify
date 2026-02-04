@@ -19,7 +19,7 @@ export default function AdminDashboard(){
 
   const revenueData = {
     labels: stats.revenue_trend.map((r:any)=> r.date),
-    datasets: [{ label: 'Revenue', data: stats.revenue_trend.map((r:any)=> r.revenue), borderColor: 'rgb(75,192,192)', backgroundColor: 'rgba(75,192,192,0.2)'}]
+    datasets: [{ label: 'Revenue (₹)', data: stats.revenue_trend.map((r:any)=> r.revenue), borderColor: 'rgb(75,192,192)', backgroundColor: 'rgba(75,192,192,0.2)'}]
   }
 
   const topProducts = {
@@ -33,7 +33,7 @@ export default function AdminDashboard(){
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="p-4 border rounded">Total Products<br/><span className="font-semibold text-xl">{stats.total_products}</span></div>
         <div className="p-4 border rounded">Total Users<br/><span className="font-semibold text-xl">{stats.total_users}</span></div>
-        <div className="p-4 border rounded">Total Revenue<br/><span className="font-semibold text-xl">${stats.total_revenue}</span></div>
+        <div className="p-4 border rounded">Total Revenue<br/><span className="font-semibold text-xl">₹{stats.total_revenue.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span></div>
       </div>
 
       <div className="mb-6">

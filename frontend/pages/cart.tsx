@@ -32,12 +32,12 @@ export default function Cart(){
                     <div className="font-semibold">{name}</div>
                     <div className="text-sm text-gray-600">Qty: {it.quantity}</div>
                   </div>
-                  <div className="text-right">${lineTotal.toFixed(2)}</div>
+                  <div className="text-right">₹{lineTotal.toFixed(2)}</div>
                 </div>
               )
             })}
           </div>
-          <div className="mt-4 font-bold">Total: ${parseFloat(cart.total_price || 0).toFixed(2)}</div>
+          <div className="mt-4 font-bold">Total: ₹{parseFloat(cart.total_price || 0).toFixed(2)}</div>
           <div className="mt-3">
             <Link href="/checkout" className="px-4 py-2 bg-blue-600 text-white rounded">Proceed to Checkout</Link>
           </div>

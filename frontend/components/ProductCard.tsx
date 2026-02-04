@@ -6,9 +6,10 @@ type Props = {
   name: string
   description: string
   price: number
+  image?: string
 }
 
-export default function ProductCard({ id, name, description, price }: Props) {
+export default function ProductCard({ id, name, description, price, image }: Props) {
   const [loading, setLoading] = useState(false)
 
   const addToCart = async () => {
@@ -26,6 +27,7 @@ export default function ProductCard({ id, name, description, price }: Props) {
 
   return (
     <div className="border rounded p-4 shadow-sm">
+      {image && <img src={image} alt={name} className="w-full h-40 object-contain mb-2" />}
       <h3 className="font-semibold text-lg">{name}</h3>
       <p className="text-sm text-gray-600">{description}</p>
       <div className="mt-2 font-bold">₹{price.toFixed(2)}</div>

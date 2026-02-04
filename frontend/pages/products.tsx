@@ -9,6 +9,7 @@ type Product = {
   description: string
   price: number
   stock?: number
+  image?: string | null
 }
 
 export default function ProductsPage(){
@@ -16,7 +17,7 @@ export default function ProductsPage(){
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   const [showAdd, setShowAdd] = useState(false)
-  const [addForm, setAddForm] = useState({name:'', description:'', price:'', stock:''})
+  const [addForm, setAddForm] = useState({name:'', description:'', price:'', stock:'', image: null as File | null})
   const [editId, setEditId] = useState<number|null>(null)
   const [editForm, setEditForm] = useState({name:'', description:'', price:'', stock:''})
 
@@ -24,7 +25,8 @@ export default function ProductsPage(){
   const fetchProducts = ()=>{
     api.get('/products/').then(res=>{
       const data = res.data.results ?? res.data
-      setProducts(data)
+      // Filter out products with stock 0
+      setProducts(data.filter((p: Product) => (typeof p.stock === 'number' ? p.stock : 1) > 0))
     }).catch(console.error).finally(()=>setLoading(false))
   }
 
@@ -39,14 +41,16 @@ export default function ProductsPage(){
   const handleAdd = async (e:any)=>{
     e.preventDefault()
     try{
-      await apiAuth.post('/products/', {
-        name: addForm.name,
-        description: addForm.description,
-        price: parseFloat(addForm.price),
-        stock: parseInt(addForm.stock)
-      })
+      console.log('addForm.image:', addForm.image, 'type:', addForm.image && typeof addForm.image, 'instanceof File:', addForm.image instanceof File);
+      const formData = new FormData()
+      formData.append('name', addForm.name)
+      formData.append('description', addForm.description)
+      formData.append('price', addForm.price)
+      formData.append('stock', addForm.stock)
+      if (addForm.image) formData.append('image', addForm.image)
+      await apiAuth.post('/products/', formData)
       setShowAdd(false)
-      setAddForm({name:'', description:'', price:'', stock:''})
+      setAddForm({name:'', description:'', price:'', stock:'', image: null})
       fetchProducts()
     }catch(err:any){
       alert('Error adding product: '+JSON.stringify(err?.response?.data||err.message))
@@ -77,17 +81,21 @@ export default function ProductsPage(){
 
   const handleEditSave = async (id: number) => {
     try {
-      await apiAuth.patch(`/products/${id}/`, {
-        name: editForm.name,
-        description: editForm.description,
-        price: parseFloat(editForm.price),
-        stock: parseInt(editForm.stock)
-      })
-      setEditId(null)
-      setEditForm({name:'', description:'', price:'', stock:''})
-      fetchProducts()
+      const formData = new FormData();
+      formData.append('name', editForm.name);
+      formData.append('description', editForm.description);
+      formData.append('price', editForm.price);
+      formData.append('stock', editForm.stock);
+      // Optionally, add image if you support editing image as well
+      // if (editForm.image) formData.append('image', editForm.image);
+      await apiAuth.patch(`/products/${id}/`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setEditId(null);
+      setEditForm({name:'', description:'', price:'', stock:''});
+      fetchProducts();
     } catch (err: any) {
-      alert('Error updating: ' + JSON.stringify(err?.response?.data || err.message))
+      alert('Error updating: ' + JSON.stringify(err?.response?.data || err.message));
     }
   }
 
@@ -112,6 +120,7 @@ export default function ProductsPage(){
               <input required className="w-full border p-2" placeholder="Description" value={addForm.description} onChange={e=>setAddForm(f=>({...f, description:e.target.value}))} />
               <input required className="w-full border p-2" placeholder="Price in rupees" type="number" min="0" step="0.01" value={addForm.price} onChange={e=>setAddForm(f=>({...f, price:e.target.value}))} />
               <input required className="w-full border p-2" placeholder="Stock" type="number" min="0" value={addForm.stock} onChange={e=>setAddForm(f=>({...f, stock:e.target.value}))} />
+              <input type="file" accept="image/*" className="w-full border p-2" onChange={e=>setAddForm(f=>({...f, image:e.target.files?.[0]||null}))} />
               <button className="bg-blue-600 text-white px-4 py-2 rounded">Add</button>
             </form>
           )}
@@ -121,7 +130,7 @@ export default function ProductsPage(){
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {products.map(p=> (
             <div key={p.id} className="relative">
-              <ProductCard id={p.id} name={p.name} description={p.description} price={Number(p.price)} />
+              <ProductCard id={p.id} name={p.name} description={p.description} price={Number(p.price)} image={p.image} />
               {isAdmin && (
                 <div className="absolute top-2 right-2 flex space-x-2">
                   <button className="bg-yellow-500 text-white px-2 py-1 rounded text-xs" onClick={()=>handleEdit(p)}>Edit</button>

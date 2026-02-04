@@ -18,6 +18,9 @@ frontend/.next/
 frontend/out/
 *.log
 
+# Ignore frontend local env
+frontend/.env.local
+
 # VSCode
 .vscode/
 backend_env/
