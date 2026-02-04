@@ -1,3 +1,38 @@
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
+# Stripe Webhook to update order status after payment
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def webhook(request):
+    payload = request.body
+    sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+    endpoint_secret = getattr(settings, 'STRIPE_WEBHOOK_SECRET', None)
+    event = None
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, endpoint_secret
+        )
+    except ValueError as e:
+        return Response({'error': 'Invalid payload'}, status=400)
+    except stripe.error.SignatureVerificationError as e:
+        return Response({'error': 'Invalid signature'}, status=400)
+
+    # Handle the checkout.session.completed event
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        order_id = session.get('metadata', {}).get('order_id')
+        if order_id:
+            from .models import Order
+            try:
+                order = Order.objects.get(id=order_id)
+                order.status = 'completed'
+                order.payment_id = session.get('payment_intent')
+                order.save()
+            except Order.DoesNotExist:
+                pass
+    return Response({'status': 'success'})
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -75,14 +110,89 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
 # Product ViewSet
 class ProductViewSet(viewsets.ModelViewSet):
+
     queryset = Product.objects.filter(is_active=True)
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
+    from rest_framework.parsers import MultiPartParser, FormParser
+    parser_classes = (MultiPartParser, FormParser)
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [AllowAny()]
         return [IsAdminUser()]
+
+    def create(self, request, *args, **kwargs):
+        # Save image to local_images, then upload to S3, then store S3 URL in image field
+        import os
+        import boto3
+        from django.conf import settings
+        data = request.data.copy()
+        if 'is_active' not in data or data['is_active'] in [None, '', False, 'false', 'False', 0, '0']:
+            data['is_active'] = True
+        image_file = request.FILES.get('image')
+        s3_url = ''
+        local_path = None
+        if image_file:
+            from urllib.parse import quote
+            # Save to local_images
+            local_dir = os.path.join(settings.BASE_DIR, 'local_images')
+            os.makedirs(local_dir, exist_ok=True)
+            local_path = os.path.join(local_dir, image_file.name)
+            with open(local_path, 'wb+') as f:
+                for chunk in image_file.chunks():
+                    f.write(chunk)
+            # Upload to S3
+            s3 = boto3.client(
+                's3',
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+                region_name=settings.AWS_S3_REGION_NAME
+            )
+            bucket = settings.AWS_STORAGE_BUCKET_NAME
+            s3_key = f'product_images/{image_file.name}'
+            s3_key_encoded = quote(s3_key)
+            try:
+                s3.upload_file(local_path, bucket, s3_key)
+                s3_url = f'https://{bucket}.s3.amazonaws.com/{s3_key_encoded}'
+                data['image'] = s3_url
+            except Exception as e:
+                import traceback
+                print(f'Failed to upload image to S3: {e}')
+                print(traceback.format_exc())
+                return Response({'error': f'Failed to upload image to S3: {e}'}, status=400)
+        # Ensure image is a valid S3 URL or empty string
+        img_val = data.get('image', '')
+        if img_val and not img_val.startswith('http'):
+            from urllib.parse import quote
+            bucket = settings.AWS_STORAGE_BUCKET_NAME
+            img_val_encoded = quote(img_val.lstrip('/'))
+            data['image'] = f"https://{bucket}.s3.amazonaws.com/{img_val_encoded}"
+        if not data.get('image'):
+            data['image'] = ''
+        print('DEBUG: data["image"] =', data.get('image'))
+        # Only validate if not empty and starts with https://
+        from django.core.validators import URLValidator
+        url_val = URLValidator(schemes=['http', 'https'])
+        img_url = data.get('image', '')
+        if img_url:
+            if not (img_url.startswith('http://') or img_url.startswith('https://')):
+                bucket = settings.AWS_STORAGE_BUCKET_NAME
+                img_url = f"https://{bucket}.s3.amazonaws.com/{img_url.lstrip('/')}"
+                data['image'] = img_url
+            try:
+                url_val(img_url)
+            except Exception as e:
+                import traceback
+                print('DEBUG: image is not a valid URL, setting to empty string')
+                print(traceback.format_exc())
+                return Response({'error': f'Image URL is invalid: {e}'}, status=400)
+        print('DEBUG: FINAL data["image"] =', data.get('image'))
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     @action(detail=False, methods=['get'])
     def by_category(self, request):
@@ -117,20 +227,30 @@ class CartViewSet(viewsets.ViewSet):
     def add_item(self, request):
         cart, _ = Cart.objects.get_or_create(user=request.user)
         product_id = request.data.get('product_id')
-        quantity = request.data.get('quantity', 1)
+        quantity = int(request.data.get('quantity', 1))
 
         try:
             product = Product.objects.get(id=product_id)
         except Product.DoesNotExist:
             return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Mark product as inactive if stock is zero
+        if product.stock == 0:
+            product.is_active = False
+            product.save()
+            return Response({'error': 'Product is out of stock and has been marked inactive.'}, status=status.HTTP_410_GONE)
+
         cart_item, created = CartItem.objects.get_or_create(
             cart=cart,
             product=product,
-            defaults={'quantity': quantity}
+            defaults={'quantity': min(quantity, product.stock)}
         )
         if not created:
-            cart_item.quantity += int(quantity)
+            new_qty = cart_item.quantity + quantity
+            if new_qty > product.stock:
+                cart_item.quantity = product.stock
+            else:
+                cart_item.quantity = new_qty
             cart_item.save()
 
         serializer = CartSerializer(cart)
@@ -147,10 +267,18 @@ class CartViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['post'])
     def update_item(self, request):
         cart_item_id = request.data.get('cart_item_id')
-        quantity = request.data.get('quantity', 1)
+        quantity = int(request.data.get('quantity', 1))
         try:
             cart_item = CartItem.objects.get(id=cart_item_id)
-            cart_item.quantity = quantity
+            product = cart_item.product
+            # Mark product as inactive if stock is zero
+            if product.stock == 0:
+                product.is_active = False
+                product.save()
+                cart_item.delete()
+                return Response({'error': 'Product is out of stock and has been marked inactive.'}, status=status.HTTP_410_GONE)
+            # Enforce max quantity as product stock
+            cart_item.quantity = min(quantity, product.stock)
             cart_item.save()
         except CartItem.DoesNotExist:
             return Response({'error': 'Cart item not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -192,8 +320,11 @@ class OrderViewSet(viewsets.ModelViewSet):
                 quantity=item.quantity,
                 price=item.product.price
             )
-            # Update product stock
+            # Update product stock and mark inactive if stock is 0
             item.product.stock -= item.quantity
+            if item.product.stock <= 0:
+                item.product.stock = 0
+                item.product.is_active = False
             item.product.save()
 
         cart_items.delete()
