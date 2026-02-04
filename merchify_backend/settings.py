@@ -214,7 +214,7 @@ STRIPE_PUBLISHABLE_KEY = config('STRIPE_PUBLISHABLE_KEY', default=None)
 STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET', default=None)
 
 # Frontend base URL for redirects (used by Stripe Checkout)
-FRONTEND_BASE_URL = config('FRONTEND_BASE_URL', default='http://localhost:3000')
+FRONTEND_BASE_URL = config('FRONTEND_BASE_URL', default='http://ec2-35-154-145-211.ap-south-1.compute.amazonaws.com:3000')
 
 
 
