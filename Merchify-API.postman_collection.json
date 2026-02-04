@@ -1,196 +1,78 @@
 {
   "info": {
-    "_postman_id": "merchify-api-collection-2026",
-    "name": "Merchify API Collection",
+    "_postman_id": "merchify-api-collection-2026-fresh",
+    "name": "Merchify API (Fresh)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "API collection for Merchify Django backend. Grouped by resource."
+    "description": "Fresh API collection for Merchify Django backend. Grouped by resource."
   },
   "item": [
     {
       "name": "Auth",
       "item": [
-        {
-          "name": "Register",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"test@example.com\",\n  \"password\": \"testpass123\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/auth/register/",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "register", ""]
-            }
-          }
-        },
-        {
-          "name": "Login",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"testpass123\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/auth/login/",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "login", ""]
-            }
-          }
-        },
-        {
-          "name": "Current User",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Token {{auth_token}}" }
-            ],
-            "url": {
-              "raw": "{{base_url}}/auth/current-user/",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "current-user", ""]
-            }
-          }
-        }
+        { "name": "Register", "request": { "method": "POST", "url": "{{base_url}}/auth/register/" } },
+        { "name": "Login", "request": { "method": "POST", "url": "{{base_url}}/auth/login/" } },
+        { "name": "Current User", "request": { "method": "GET", "url": "{{base_url}}/auth/current-user/" } }
       ]
     },
     {
       "name": "Categories",
       "item": [
-        {
-          "name": "List Categories",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/categories/",
-              "host": ["{{base_url}}"],
-              "path": ["categories", ""]
-            }
-          }
-        },
-        {
-          "name": "Create Category",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Token {{auth_token}}" },
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"T-Shirts\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/categories/",
-              "host": ["{{base_url}}"],
-              "path": ["categories", ""]
-            }
-          }
-        }
+        { "name": "List Categories", "request": { "method": "GET", "url": "{{base_url}}/categories/" } },
+        { "name": "Create Category", "request": { "method": "POST", "url": "{{base_url}}/categories/" } },
+        { "name": "Category Detail", "request": { "method": "GET", "url": "{{base_url}}/categories/:id/" } },
+        { "name": "Update Category", "request": { "method": "PUT", "url": "{{base_url}}/categories/:id/" } },
+        { "name": "Partial Update Category", "request": { "method": "PATCH", "url": "{{base_url}}/categories/:id/" } },
+        { "name": "Delete Category", "request": { "method": "DELETE", "url": "{{base_url}}/categories/:id/" } }
       ]
     },
     {
       "name": "Products",
       "item": [
-        {
-          "name": "List Products",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{base_url}}/products/",
-              "host": ["{{base_url}}"],
-              "path": ["products", ""]
-            }
-          }
-        },
-        {
-          "name": "Create Product",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Authorization", "value": "Token {{auth_token}}" },
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Sample Product\",\n  \"price\": 19.99,\n  \"category\": 1\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/products/",
-              "host": ["{{base_url}}"],
-              "path": ["products", ""]
-            }
-          }
-        }
+        { "name": "List Products", "request": { "method": "GET", "url": "{{base_url}}/products/" } },
+        { "name": "Create Product", "request": { "method": "POST", "url": "{{base_url}}/products/" } },
+        { "name": "Product Detail", "request": { "method": "GET", "url": "{{base_url}}/products/:id/" } },
+        { "name": "Update Product", "request": { "method": "PUT", "url": "{{base_url}}/products/:id/" } },
+        { "name": "Partial Update Product", "request": { "method": "PATCH", "url": "{{base_url}}/products/:id/" } },
+        { "name": "Delete Product", "request": { "method": "DELETE", "url": "{{base_url}}/products/:id/" } }
       ]
     },
     {
       "name": "Cart",
       "item": [
-        {
-          "name": "View Cart",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Token {{auth_token}}" }
-            ],
-            "url": {
-              "raw": "{{base_url}}/cart/",
-              "host": ["{{base_url}}"],
-              "path": ["cart", ""]
-            }
-          }
-        }
+        { "name": "Get My Cart", "request": { "method": "GET", "url": "{{base_url}}/cart/my_cart/" } },
+        { "name": "Add Item", "request": { "method": "POST", "url": "{{base_url}}/cart/add_item/" } },
+        { "name": "Remove Item", "request": { "method": "POST", "url": "{{base_url}}/cart/remove_item/" } },
+        { "name": "Update Item", "request": { "method": "POST", "url": "{{base_url}}/cart/update_item/" } }
       ]
     },
     {
       "name": "Orders",
       "item": [
-        {
-          "name": "List Orders",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Token {{auth_token}}" }
-            ],
-            "url": {
-              "raw": "{{base_url}}/orders/",
-              "host": ["{{base_url}}"],
-              "path": ["orders", ""]
-            }
-          }
-        }
+        { "name": "List Orders", "request": { "method": "GET", "url": "{{base_url}}/orders/" } },
+        { "name": "Create Order", "request": { "method": "POST", "url": "{{base_url}}/orders/" } },
+        { "name": "Order Detail", "request": { "method": "GET", "url": "{{base_url}}/orders/:id/" } },
+        { "name": "Update Order", "request": { "method": "PUT", "url": "{{base_url}}/orders/:id/" } },
+        { "name": "Partial Update Order", "request": { "method": "PATCH", "url": "{{base_url}}/orders/:id/" } },
+        { "name": "Delete Order", "request": { "method": "DELETE", "url": "{{base_url}}/orders/:id/" } },
+        { "name": "Create Checkout Session", "request": { "method": "POST", "url": "{{base_url}}/orders/:id/create_checkout_session/" } },
+        { "name": "Checkout", "request": { "method": "POST", "url": "{{base_url}}/orders/:id/checkout/" } },
+        { "name": "Cancel Order", "request": { "method": "POST", "url": "{{base_url}}/orders/:id/cancel/" } }
       ]
     },
     {
       "name": "Dashboard",
       "item": [
-        {
-          "name": "Stats",
-          "request": {
-            "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Token {{auth_token}}" }
-            ],
-            "url": {
-              "raw": "{{base_url}}/dashboard/stats/",
-              "host": ["{{base_url}}"],
-              "path": ["dashboard", "stats", ""]
-            }
-          }
-        }
+        { "name": "Stats", "request": { "method": "GET", "url": "{{base_url}}/dashboard/stats/" } }
+      ]
+    },
+    {
+      "name": "Stripe",
+      "item": [
+        { "name": "Webhook", "request": { "method": "POST", "url": "{{base_url}}/stripe/webhook/" } }
       ]
     }
   ],
   "variable": [
-    { "key": "base_url", "value": "http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:8000/api" },
-    { "key": "auth_token", "value": "" }
+    { "key": "base_url", "value": "http://localhost:8000/api" }
   ]
 }
