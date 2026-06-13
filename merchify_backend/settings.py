@@ -201,9 +201,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://13.233.212.112:3000',
     'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:3000',
     'http://13.233.212.112:8000',
-    'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:8000'
-    'http://13.126.212.250:3000'
-    'http://13.126.212.250:8000',
+    'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:8000',
+    'http://13.126.212.250:3000',
+    'http://13.126.212.250:8000'
 ]
 
 CORS_ALLOW_CREDENTIALS = True
