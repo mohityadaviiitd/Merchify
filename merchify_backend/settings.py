@@ -54,12 +54,12 @@ MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/" if AWS_S3_CUSTOM_DOMAIN else '/me
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-q#_v405$g+=et!r(6%)xqndsuv_8j$#nw(018g0*9z2ev$1mmf'
+SECRET_KEY = config('AWS_SECRET_ACCESS_KEY', default=None)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['13.233.212.112', 'ec2-13-233-212-112.ap-south-1.compute.amazonaws.com', 'localhost']
+ALLOWED_HOSTS = ['13.233.212.112', 'ec2-13-233-212-112.ap-south-1.compute.amazonaws.com', 'localhost', '15.206.89.85']
 
 
 # Application definition
@@ -201,7 +201,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://13.233.212.112:3000',
     'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:3000',
     'http://13.233.212.112:8000',
-    'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:8000',
+    'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:8000'
+    'http://15.206.89.85:3000'
+    'http://15.206.89.85:8000',
 ]
 
 CORS_ALLOW_CREDENTIALS = True
