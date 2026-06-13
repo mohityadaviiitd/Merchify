@@ -1,78 +1,80 @@
 {
   "info": {
-    "_postman_id": "merchify-api-collection-2026-fresh",
-    "name": "Merchify API (Fresh)",
+    "_postman_id": "merchify-api-collection-demo-2026",
+    "name": "Merchify API (Demo Data)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Fresh API collection for Merchify Django backend. Grouped by resource."
+    "description": "API collection for Merchify Django backend with demo data in params and body."
   },
   "item": [
     {
       "name": "Auth",
       "item": [
-        { "name": "Register", "request": { "method": "POST", "url": "{{base_url}}/auth/register/" } },
-        { "name": "Login", "request": { "method": "POST", "url": "{{base_url}}/auth/login/" } },
-        { "name": "Current User", "request": { "method": "GET", "url": "{{base_url}}/auth/current-user/" } }
+        { "name": "Register", "request": { "method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "body": { "mode": "raw", "raw": "{\n  \"username\": \"testuser1\",\n  \"email\": \"test1@example.com\",\n  \"password\": \"TestPass123!\"\n}" }, "url": "{{base_url}}/auth/register/", "description": "Body: JSON { username, email, password }" } },
+        { "name": "Login", "request": { "method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "body": { "mode": "raw", "raw": "{\n  \"username\": \"testuser1\",\n  \"password\": \"TestPass123!\"\n}" }, "url": "{{base_url}}/auth/login/", "description": "Body: JSON { username, password }" } },
+        { "name": "Current User", "request": { "method": "GET", "header": [{"key":"Authorization","value":"Token {{user_token}}"}], "url": "{{base_url}}/auth/current-user/", "description": "Header: Authorization: Token <user_token> (required)" } }
       ]
     },
     {
       "name": "Categories",
       "item": [
-        { "name": "List Categories", "request": { "method": "GET", "url": "{{base_url}}/categories/" } },
-        { "name": "Create Category", "request": { "method": "POST", "url": "{{base_url}}/categories/" } },
-        { "name": "Category Detail", "request": { "method": "GET", "url": "{{base_url}}/categories/:id/" } },
-        { "name": "Update Category", "request": { "method": "PUT", "url": "{{base_url}}/categories/:id/" } },
-        { "name": "Partial Update Category", "request": { "method": "PATCH", "url": "{{base_url}}/categories/:id/" } },
-        { "name": "Delete Category", "request": { "method": "DELETE", "url": "{{base_url}}/categories/:id/" } }
+        { "name": "List Categories", "request": { "method": "GET", "header": [{"key":"Authorization","value":"Token {{user_token}}"}], "url": "{{base_url}}/categories/", "description": "Header: Authorization: Token <user_token> (required)" } },
+        { "name": "Create Category", "request": { "method": "POST", "header": [{"key":"Authorization","value":"Token {{admin_token}}"},{"key":"Content-Type","value":"application/json"}], "body": { "mode": "raw", "raw": "{\n  \"name\": \"T-Shirts\",\n  \"description\": \"All t-shirts\"\n}" }, "url": "{{base_url}}/categories/", "description": "Header: Authorization: Token <admin_token> (required). Body: JSON { name, description (optional) }" } },
+        { "name": "Category Detail", "request": { "method": "GET", "header": [{"key":"Authorization","value":"Token {{user_token}}"}], "url": "{{base_url}}/categories/1/", "description": "Header: Authorization: Token <user_token> (required)" } },
+        { "name": "Update Category", "request": { "method": "PUT", "header": [{"key":"Authorization","value":"Token {{admin_token}}"},{"key":"Content-Type","value":"application/json"}], "body": { "mode": "raw", "raw": "{\n  \"name\": \"T-Shirts Updated\",\n  \"description\": \"Updated description\"\n}" }, "url": "{{base_url}}/categories/1/", "description": "Header: Authorization: Token <admin_token> (required). Body: JSON { name, description (optional) }" } },
+        { "name": "Partial Update Category", "request": { "method": "PATCH", "header": [{"key":"Authorization","value":"Token {{admin_token}}"},{"key":"Content-Type","value":"application/json"}], "body": { "mode": "raw", "raw": "{\n  \"description\": \"Patched description\"\n}" }, "url": "{{base_url}}/categories/1/", "description": "Header: Authorization: Token <admin_token> (required). Body: JSON { name?, description? }" } },
+        { "name": "Delete Category", "request": { "method": "DELETE", "header": [{"key":"Authorization","value":"Token {{admin_token}}"}], "url": "{{base_url}}/categories/1/", "description": "Header: Authorization: Token <admin_token> (required)" } }
       ]
     },
     {
       "name": "Products",
       "item": [
-        { "name": "List Products", "request": { "method": "GET", "url": "{{base_url}}/products/" } },
-        { "name": "Create Product", "request": { "method": "POST", "url": "{{base_url}}/products/" } },
-        { "name": "Product Detail", "request": { "method": "GET", "url": "{{base_url}}/products/:id/" } },
-        { "name": "Update Product", "request": { "method": "PUT", "url": "{{base_url}}/products/:id/" } },
-        { "name": "Partial Update Product", "request": { "method": "PATCH", "url": "{{base_url}}/products/:id/" } },
-        { "name": "Delete Product", "request": { "method": "DELETE", "url": "{{base_url}}/products/:id/" } }
+        { "name": "List Products", "request": { "method": "GET", "url": "{{base_url}}/products/", "description": "No auth required." } },
+        { "name": "Create Product", "request": { "method": "POST", "header": [{"key":"Authorization","value":"Token {{admin_token}}"}], "body": { "mode": "formdata", "formdata": [ { "key": "name", "value": "Sample Product" }, { "key": "description", "value": "A demo product" }, { "key": "price", "value": "199.99" }, { "key": "stock", "value": "10" }, { "key": "category", "value": "1" } ] }, "url": "{{base_url}}/products/", "description": "Header: Authorization: Token <admin_token> (required). Body: multipart/form-data { name, description, price, stock, image (file, optional), category (id) }" } },
+        { "name": "Product Detail", "request": { "method": "GET", "url": "{{base_url}}/products/1/", "description": "No auth required." } },
+        { "name": "Update Product", "request": { "method": "PUT", "header": [{"key":"Authorization","value":"Token {{admin_token}}"}], "body": { "mode": "formdata", "formdata": [ { "key": "name", "value": "Updated Product" }, { "key": "description", "value": "Updated description" }, { "key": "price", "value": "299.99" }, { "key": "stock", "value": "5" }, { "key": "category", "value": "1" } ] }, "url": "{{base_url}}/products/1/", "description": "Header: Authorization: Token <admin_token> (required). Body: multipart/form-data { name, description, price, stock, image (file, optional), category (id) }" } },
+        { "name": "Partial Update Product", "request": { "method": "PATCH", "header": [{"key":"Authorization","value":"Token {{admin_token}}"}], "body": { "mode": "formdata", "formdata": [ { "key": "stock", "value": "15" } ] }, "url": "{{base_url}}/products/1/", "description": "Header: Authorization: Token <admin_token> (required). Body: multipart/form-data { any updatable field }" } },
+        { "name": "Delete Product", "request": { "method": "DELETE", "header": [{"key":"Authorization","value":"Token {{admin_token}}"}], "url": "{{base_url}}/products/1/", "description": "Header: Authorization: Token <admin_token> (required)" } }
       ]
     },
     {
       "name": "Cart",
       "item": [
-        { "name": "Get My Cart", "request": { "method": "GET", "url": "{{base_url}}/cart/my_cart/" } },
-        { "name": "Add Item", "request": { "method": "POST", "url": "{{base_url}}/cart/add_item/" } },
-        { "name": "Remove Item", "request": { "method": "POST", "url": "{{base_url}}/cart/remove_item/" } },
-        { "name": "Update Item", "request": { "method": "POST", "url": "{{base_url}}/cart/update_item/" } }
+        { "name": "Get My Cart", "request": { "method": "GET", "header": [{"key":"Authorization","value":"Token {{user_token}}"}], "url": "{{base_url}}/cart/my_cart/", "description": "Header: Authorization: Token <user_token> (required)" } },
+        { "name": "Add Item", "request": { "method": "POST", "header": [{"key":"Authorization","value":"Token {{user_token}}"},{"key":"Content-Type","value":"application/json"}], "body": { "mode": "raw", "raw": "{\n  \"product\": 1,\n  \"quantity\": 2\n}" }, "url": "{{base_url}}/cart/add_item/", "description": "Header: Authorization: Token <user_token> (required). Body: JSON { product (id), quantity }" } },
+        { "name": "Remove Item", "request": { "method": "POST", "header": [{"key":"Authorization","value":"Token {{user_token}}"},{"key":"Content-Type","value":"application/json"}], "body": { "mode": "raw", "raw": "{\n  \"cart_item_id\": 1\n}" }, "url": "{{base_url}}/cart/remove_item/", "description": "Header: Authorization: Token <user_token> (required). Body: JSON { cart_item_id }" } },
+        { "name": "Update Item", "request": { "method": "POST", "header": [{"key":"Authorization","value":"Token {{user_token}}"},{"key":"Content-Type","value":"application/json"}], "body": { "mode": "raw", "raw": "{\n  \"cart_item_id\": 1,\n  \"quantity\": 3\n}" }, "url": "{{base_url}}/cart/update_item/", "description": "Header: Authorization: Token <user_token> (required). Body: JSON { cart_item_id, quantity }" } }
       ]
     },
     {
       "name": "Orders",
       "item": [
-        { "name": "List Orders", "request": { "method": "GET", "url": "{{base_url}}/orders/" } },
-        { "name": "Create Order", "request": { "method": "POST", "url": "{{base_url}}/orders/" } },
-        { "name": "Order Detail", "request": { "method": "GET", "url": "{{base_url}}/orders/:id/" } },
-        { "name": "Update Order", "request": { "method": "PUT", "url": "{{base_url}}/orders/:id/" } },
-        { "name": "Partial Update Order", "request": { "method": "PATCH", "url": "{{base_url}}/orders/:id/" } },
-        { "name": "Delete Order", "request": { "method": "DELETE", "url": "{{base_url}}/orders/:id/" } },
-        { "name": "Create Checkout Session", "request": { "method": "POST", "url": "{{base_url}}/orders/:id/create_checkout_session/" } },
-        { "name": "Checkout", "request": { "method": "POST", "url": "{{base_url}}/orders/:id/checkout/" } },
-        { "name": "Cancel Order", "request": { "method": "POST", "url": "{{base_url}}/orders/:id/cancel/" } }
+        { "name": "List Orders", "request": { "method": "GET", "header": [{"key":"Authorization","value":"Token {{user_token}}"}], "url": "{{base_url}}/orders/", "description": "Header: Authorization: Token <user_token> (required)" } },
+        { "name": "Create Order", "request": { "method": "POST", "header": [{"key":"Authorization","value":"Token {{user_token}}"}], "url": "{{base_url}}/orders/", "description": "Header: Authorization: Token <user_token> (required). No body needed, creates order from cart." } },
+        { "name": "Order Detail", "request": { "method": "GET", "header": [{"key":"Authorization","value":"Token {{user_token}}"}], "url": "{{base_url}}/orders/1/", "description": "Header: Authorization: Token <user_token> (required)" } },
+        { "name": "Update Order", "request": { "method": "PUT", "header": [{"key":"Authorization","value":"Token {{admin_token}}"},{"key":"Content-Type","value":"application/json"}], "body": { "mode": "raw", "raw": "{\n  \"status\": \"completed\"\n}" }, "url": "{{base_url}}/orders/1/", "description": "Header: Authorization: Token <admin_token> (required). Body: JSON { status, ... }" } },
+        { "name": "Partial Update Order", "request": { "method": "PATCH", "header": [{"key":"Authorization","value":"Token {{admin_token}}"},{"key":"Content-Type","value":"application/json"}], "body": { "mode": "raw", "raw": "{\n  \"status\": \"pending\"\n}" }, "url": "{{base_url}}/orders/1/", "description": "Header: Authorization: Token <admin_token> (required). Body: JSON { status?, ... }" } },
+        { "name": "Delete Order", "request": { "method": "DELETE", "header": [{"key":"Authorization","value":"Token {{admin_token}}"}], "url": "{{base_url}}/orders/1/", "description": "Header: Authorization: Token <admin_token> (required)" } },
+        { "name": "Create Checkout Session", "request": { "method": "POST", "header": [{"key":"Authorization","value":"Token {{user_token}}"}], "url": "{{base_url}}/orders/1/create_checkout_session/", "description": "Header: Authorization: Token <user_token> (required). No body needed. Returns Stripe Checkout URL." } },
+        { "name": "Checkout", "request": { "method": "POST", "header": [{"key":"Authorization","value":"Token {{user_token}}"},{"key":"Content-Type","value":"application/json"}], "body": { "mode": "raw", "raw": "{\n  \"stripe_token\": \"tok_visa\"\n}" }, "url": "{{base_url}}/orders/1/checkout/", "description": "Header: Authorization: Token <user_token> (required). Body: JSON { stripe_token } (if using direct charge)." } },
+        { "name": "Cancel Order", "request": { "method": "POST", "header": [{"key":"Authorization","value":"Token {{user_token}}"}], "url": "{{base_url}}/orders/1/cancel/", "description": "Header: Authorization: Token <user_token> (required). No body needed." } }
       ]
     },
     {
       "name": "Dashboard",
       "item": [
-        { "name": "Stats", "request": { "method": "GET", "url": "{{base_url}}/dashboard/stats/" } }
+        { "name": "Stats", "request": { "method": "GET", "header": [{"key":"Authorization","value":"Token {{admin_token}}"}], "url": "{{base_url}}/dashboard/stats/", "description": "Header: Authorization: Token <admin_token> (required)" } }
       ]
     },
     {
       "name": "Stripe",
       "item": [
-        { "name": "Webhook", "request": { "method": "POST", "url": "{{base_url}}/stripe/webhook/" } }
+        { "name": "Webhook", "request": { "method": "POST", "url": "{{base_url}}/stripe/webhook/", "description": "No auth required. Used by Stripe to notify payment events. Body: Stripe event payload." } }
       ]
     }
   ],
   "variable": [
-    { "key": "base_url", "value": "http://localhost:8000/api" }
+    { "key": "base_url", "value": "http://localhost:8000/api" },
+    { "key": "user_token", "value": "" },
+    { "key": "admin_token", "value": "" }
   ]
 }
