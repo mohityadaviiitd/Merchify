@@ -59,7 +59,10 @@ SECRET_KEY = config('AWS_SECRET_ACCESS_KEY', default=None)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['13.233.212.112', 'ec2-13-233-212-112.ap-south-1.compute.amazonaws.com', 'localhost', '13.126.212.250', '13.234.66.200', 'http://merchify-alb-606762635.ap-south-1.elb.amazonaws.com/products']
+ALLOWED_HOSTS_ENV = os.environ.get("ALLOWED_HOSTS", "127.0.0.1,localhost")
+ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_ENV.split(",") if host.strip()]
+
+# ALLOWED_HOSTS = ['13.233.212.112', 'ec2-13-233-212-112.ap-south-1.compute.amazonaws.com', 'localhost', '13.126.212.250', '13.234.66.200', 'http://merchify-alb-606762635.ap-south-1.elb.amazonaws.com/products']
 
 
 # Application definition
@@ -194,20 +197,27 @@ REST_FRAMEWORK = {
 }
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-    'http://localhost:8000',
-    'http://127.0.0.1:3000',
-    'http://13.233.212.112:3000',
-    'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:3000',
-    'http://13.233.212.112:8000',
-    'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:8000',
-    'http://13.126.212.250:3000',
-    'http://13.126.212.250:8000',
-    'http://13.234.66.200:3000',
-    'http://13.234.66.200:8000',
-    'http://merchify-alb-606762635.ap-south-1.elb.amazonaws.com/products'
-]
+
+CORS_ALLOWED_ORIGINS_ENV = os.environ.get("CORS_ALLOWED_ORIGINS", "")
+if CORS_ALLOWED_ORIGINS_ENV:
+    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS_ENV.split(",") if origin.strip()]
+else:
+    CORS_ALLOWED_ORIGINS = []
+
+# CORS_ALLOWED_ORIGINS = [
+#     'http://localhost:3000',
+#     'http://localhost:8000',
+#     'http://127.0.0.1:3000',
+#     'http://13.233.212.112:3000',
+#     'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:3000',
+#     'http://13.233.212.112:8000',
+#     'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:8000',
+#     'http://13.126.212.250:3000',
+#     'http://13.126.212.250:8000',
+#     'http://13.234.66.200:3000',
+#     'http://13.234.66.200:8000',
+#     'http://merchify-alb-606762635.ap-south-1.elb.amazonaws.com/products'
+# ]
 
 CORS_ALLOW_CREDENTIALS = True
 
