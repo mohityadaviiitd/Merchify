@@ -112,24 +112,24 @@ WSGI_APPLICATION = 'merchify_backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': os.environ.get('POSTGRES_DB', 'merchify'),
-#         'USER': os.environ.get('POSTGRES_USER', 'merchifyuser'),
-#         'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'strongpassword'),
-#         'HOST': os.environ.get('DB_HOST', 'db'),
-#         'PORT': os.environ.get('DB_PORT', '5432'),
-#     }
-# }
-
-# Use SQLite for local testing
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('POSTGRES_DB', 'merchify'),
+        'USER': os.environ.get('POSTGRES_USER', 'merchifyuser'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'strongpassword'),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
+
+# Use SQLite for local testing
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 
 
 # Password validation

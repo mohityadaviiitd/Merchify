@@ -4,11 +4,11 @@ services:
   db:
     image: postgres:15
     environment:
-      POSTGRES_DB: merchify
-      POSTGRES_USER: merchifyuser
-      POSTGRES_PASSWORD: strongpassword
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
     ports:
       - "5432:5432"
 
