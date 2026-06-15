@@ -59,7 +59,7 @@ SECRET_KEY = config('AWS_SECRET_ACCESS_KEY', default=None)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['13.233.212.112', 'ec2-13-233-212-112.ap-south-1.compute.amazonaws.com', 'localhost', '13.126.212.250']
+ALLOWED_HOSTS = ['13.233.212.112', 'ec2-13-233-212-112.ap-south-1.compute.amazonaws.com', 'localhost', '13.126.212.250', '13.234.66.200']
 
 
 # Application definition
@@ -203,7 +203,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://13.233.212.112:8000',
     'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:8000',
     'http://13.126.212.250:3000',
-    'http://13.126.212.250:8000'
+    'http://13.126.212.250:8000',
+    'http://13.234.66.200:3000',
+    'http://13.234.66.200:8000'
 ]
 
 CORS_ALLOW_CREDENTIALS = True
