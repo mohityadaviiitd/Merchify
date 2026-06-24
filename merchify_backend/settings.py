@@ -62,7 +62,7 @@ DEBUG = False
 ALLOWED_HOSTS_ENV = os.environ.get("ALLOWED_HOSTS", "127.0.0.1,localhost")
 ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_ENV.split(",") if host.strip()]
 
-# ALLOWED_HOSTS = ['13.233.212.112', 'ec2-13-233-212-112.ap-south-1.compute.amazonaws.com', 'localhost', '13.126.212.250', '13.234.66.200', 'http://merchify-alb-606762635.ap-south-1.elb.amazonaws.com/products']
+# ALLOWED_HOSTS = ['localhost']
 
 
 # Application definition
@@ -115,24 +115,24 @@ WSGI_APPLICATION = 'merchify_backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('POSTGRES_DB', 'merchify'),
-        'USER': os.environ.get('POSTGRES_USER', 'merchifyuser'),
-        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'strongpassword'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
-    }
-}
-
-# Use SQLite for local testing
 # DATABASES = {
 #     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': os.environ.get('POSTGRES_DB', 'merchify'),
+#         'USER': os.environ.get('POSTGRES_USER', 'merchifyuser'),
+#         'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'strongpassword'),
+#         'HOST': os.environ.get('DB_HOST', 'localhost'),
+#         'PORT': os.environ.get('DB_PORT', '5432'),
 #     }
 # }
+
+# Use SQLite for local testing
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
 
 
 # Password validation
@@ -202,22 +202,7 @@ CORS_ALLOWED_ORIGINS_ENV = os.environ.get("CORS_ALLOWED_ORIGINS", "")
 if CORS_ALLOWED_ORIGINS_ENV:
     CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS_ENV.split(",") if origin.strip()]
 else:
-    CORS_ALLOWED_ORIGINS = []
-
-# CORS_ALLOWED_ORIGINS = [
-#     'http://localhost:3000',
-#     'http://localhost:8000',
-#     'http://127.0.0.1:3000',
-#     'http://13.233.212.112:3000',
-#     'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:3000',
-#     'http://13.233.212.112:8000',
-#     'http://ec2-13-233-212-112.ap-south-1.compute.amazonaws.com:8000',
-#     'http://13.126.212.250:3000',
-#     'http://13.126.212.250:8000',
-#     'http://13.234.66.200:3000',
-#     'http://13.234.66.200:8000',
-#     'http://merchify-alb-606762635.ap-south-1.elb.amazonaws.com/products'
-# ]
+    CORS_ALLOWED_ORIGINS = ['http://localhost:3000', 'http://localhost:8000']
 
 CORS_ALLOW_CREDENTIALS = True
 
