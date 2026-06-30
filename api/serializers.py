@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Category, Product, Order, OrderItem, Cart, CartItem
+from .sharding import ShardingContext
 
 
 # User Serializers
@@ -25,7 +26,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             user.is_staff = True
             user.is_superuser = True
             user.save()
-        Cart.objects.create(user=user)
+
+        ShardingContext.set_user_id(user.id)
+        try:
+            Cart.objects.create(user=user)
+        finally:
+            ShardingContext.clear()
+
         return user
 
 

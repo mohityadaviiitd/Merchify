@@ -1,6 +1,8 @@
-# EC2-Based Sharding and Replica Guide for Merchify
+# EC2-Based Sharding and Replica Endpoint Guide for Merchify
 
-This guide is written for PostgreSQL 16 on an EC2 instance and shows how to expose the same shard and replica endpoints that your Django app expects.
+This guide is written for PostgreSQL 16 on an EC2 instance and shows how to expose shard-like endpoints that your Django app can use for testing.
+
+Important: the setup below uses separate PostgreSQL clusters on different ports. They are not true streaming replicas. That means writes to one cluster will not automatically appear in another cluster. This is still useful for learning sharding behavior and for testing your app’s routing logic.
 
 You do not need to change application code. The app already reads shard and replica connection details from environment variables in [merchify_backend/settings.py](merchify_backend/settings.py), so the only change is to point those variables to your EC2 host and ports.
 
@@ -10,9 +12,9 @@ On one EC2 instance, you can create:
 
 - 1 PostgreSQL cluster for the default database on port 5432
 - 1 PostgreSQL cluster for shard 0 on port 5433
-- 1 PostgreSQL cluster for shard 0 replica on port 5434
+- 1 PostgreSQL cluster for shard 0 endpoint on port 5434
 - 1 PostgreSQL cluster for shard 1 on port 5435
-- 1 PostgreSQL cluster for shard 1 replica on port 5436
+- 1 PostgreSQL cluster for shard 1 endpoint on port 5436
 
 This is enough to test the app’s shard routing behavior in a realistic way.
 
@@ -106,7 +108,7 @@ sudo pg_lsclusters
 
 You will usually see a default cluster on port 5432.
 
-### Create additional clusters for shards and replicas
+### Create additional clusters for shard endpoints
 
 Run these commands:
 
@@ -187,21 +189,22 @@ sudo pg_ctlcluster 16 shard1_replica restart
 
 ---
 
-## 8. Create the databases and user
+## 8. Create the user and databases on each cluster
 
-Create a user and the databases for each endpoint.
+Because each PostgreSQL cluster has its own catalog, you must create the user and databases separately for each port.
+
+Create the user on every cluster:
 
 ```bash
-sudo -u postgres psql <<'SQL'
+for port in 5432 5433 5434 5435 5436; do
+  sudo -u postgres psql -p "$port" <<'SQL'
 CREATE USER merchifyuser WITH PASSWORD 'strongpassword';
 ALTER USER merchifyuser WITH SUPERUSER;
-CREATE DATABASE merchify OWNER merchifyuser;
-CREATE DATABASE merchify_shard_0 OWNER merchifyuser;
-CREATE DATABASE merchify_shard_1 OWNER merchifyuser;
 SQL
+done
 ```
 
-You can also create them per port if you want to be explicit:
+Create the databases on each cluster:
 
 ```bash
 sudo -u postgres psql -p 5432 -c "CREATE DATABASE merchify OWNER merchifyuser;"
@@ -211,7 +214,7 @@ sudo -u postgres psql -p 5435 -c "CREATE DATABASE merchify_shard_1 OWNER merchif
 sudo -u postgres psql -p 5436 -c "CREATE DATABASE merchify_shard_1 OWNER merchifyuser;"
 ```
 
-If `merchifyuser` already exists, you can skip the create user step.
+If you see an error that the role or database already exists, you can ignore it or drop and recreate as needed for your test environment.
 
 ---
 
@@ -275,19 +278,34 @@ No other code changes are required.
 
 ## 11. Run the Django setup commands
 
+If your backend is running in Docker Compose, run the commands inside the backend container instead of on the EC2 host directly.
+
+### Option A: Run from the EC2 host using Docker Compose
+
 From the project root:
 
 ```bash
-python manage.py setup_shards --check
-python manage.py setup_shards --migrate
+sudo docker-compose exec backend python manage.py setup_shards --check
+sudo docker-compose exec backend python manage.py setup_shards --migrate
 ```
 
 If needed, run migrations per database:
 
 ```bash
-python manage.py migrate --database=shard_0
-python manage.py migrate --database=shard_1
+# sudo docker-compose run --rm backend python manage.py migrate
+sudo docker-compose exec backend python manage.py migrate --database=shard_0
+sudo docker-compose exec backend python manage.py migrate --database=shard_1
 ```
+
+### Option B: Run from inside the backend container
+
+```bash
+docker compose exec backend bash
+python manage.py setup_shards --check
+python manage.py setup_shards --migrate
+```
+
+If your Compose service is named differently, replace `backend` with the correct service name from your docker-compose.yml.
 
 ---
 
@@ -340,6 +358,6 @@ sudo journalctl -u postgresql
 
 ## Notes
 
-This setup uses separate PostgreSQL clusters on different ports as a practical learning environment. It is enough to test the app’s routing logic and replica endpoint configuration without needing RDS.
+This setup uses separate PostgreSQL clusters on different ports as a practical learning environment. It is enough to test the app’s routing logic and endpoint configuration without needing RDS.
 
-If you want, I can also give you a follow-up guide for true streaming replication from one PostgreSQL 16 primary to a replica on EC2.
+If you want a true streaming-replication setup later, I can also give you a follow-up guide for PostgreSQL 16 primary-to-standby replication on EC2.
