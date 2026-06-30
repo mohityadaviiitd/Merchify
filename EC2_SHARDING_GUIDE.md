@@ -1,203 +1,239 @@
 # EC2-Based Sharding and Replica Guide for Merchify
 
-This guide shows how to mimic the sharding setup on an EC2 instance when RDS free tier is not available.
+This guide is written for PostgreSQL 16 on an EC2 instance and shows how to expose the same shard and replica endpoints that your Django app expects.
 
 You do not need to change application code. The app already reads shard and replica connection details from environment variables in [merchify_backend/settings.py](merchify_backend/settings.py), so the only change is to point those variables to your EC2 host and ports.
 
 ## What you will create
 
-On one EC2 instance, you can run:
+On one EC2 instance, you can create:
 
-- 1 PostgreSQL instance for the default database
-- 1 PostgreSQL primary for shard 0
-- 1 PostgreSQL replica for shard 0
-- 1 PostgreSQL primary for shard 1
-- 1 PostgreSQL replica for shard 1
+- 1 PostgreSQL cluster for the default database on port 5432
+- 1 PostgreSQL cluster for shard 0 on port 5433
+- 1 PostgreSQL cluster for shard 0 replica on port 5434
+- 1 PostgreSQL cluster for shard 1 on port 5435
+- 1 PostgreSQL cluster for shard 1 replica on port 5436
 
-This is enough to test the app's shard routing behavior in a realistic way.
+This is enough to test the app’s shard routing behavior in a realistic way.
 
 ---
 
-## 1. Launch an EC2 instance
+## 1. Launch the EC2 instance
 
-Use any Ubuntu 22.04/24.04 or Amazon Linux 2023 instance.
+Use an Ubuntu 22.04/24.04 instance or any Linux distribution where PostgreSQL 16 is available.
 
 Recommended settings:
 - Instance type: t3.small or larger
 - Storage: 20 GB+
 - Security group: allow inbound TCP on:
   - 22 from your IP
-  - 5432, 5433, 5434, 5435, 5436 from your IP (or from your security group)
+  - 5432, 5433, 5434, 5435, 5436 from your IP or from your security group
 
-If you are using a public IP, note that it may change unless you attach an Elastic IP.
+If you use a public IP, attach an Elastic IP if you want it to remain stable.
 
 ---
 
-## 2. Connect to the EC2 instance
+## 2. Connect to the instance
 
 ```bash
 ssh -i your-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
 ```
 
-If you are using Amazon Linux, replace `ubuntu` with `ec2-user`.
+If you use Amazon Linux, replace `ubuntu` with `ec2-user`.
 
 ---
 
-## 3. Install PostgreSQL
+## 3. Install PostgreSQL 16
 
-For Ubuntu:
+On Ubuntu/Debian:
 
 ```bash
 sudo apt update
-sudo apt install -y postgresql postgresql-contrib
+sudo apt install -y wget gnupg lsb-release
+sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+sudo apt update
+sudo apt install -y postgresql-16 postgresql-client-16
 ```
 
-For Amazon Linux:
+Verify the version:
 
 ```bash
-sudo dnf install -y postgresql-server postgresql-contrib
-sudo postgresql-setup initdb
-sudo systemctl enable --now postgresql
+psql --version
+```
+
+You should see PostgreSQL 16.x.
+
+---
+
+## 4. Configure the EC2 firewall and security group
+
+### Security group
+
+In AWS, open these inbound TCP ports:
+- 22
+- 5432
+- 5433
+- 5434
+- 5435
+- 5436
+
+### Ubuntu firewall
+
+If UFW is enabled:
+
+```bash
+sudo ufw allow 22/tcp
+sudo ufw allow 5432/tcp
+sudo ufw allow 5433/tcp
+sudo ufw allow 5434/tcp
+sudo ufw allow 5435/tcp
+sudo ufw allow 5436/tcp
+sudo ufw reload
 ```
 
 ---
 
-## 4. Create the PostgreSQL clusters
+## 5. Create PostgreSQL clusters on the required ports
 
-The simplest learning setup is to run separate PostgreSQL instances on different ports.
+The easiest learning setup is to use separate PostgreSQL clusters on different ports.
 
-### Port plan
-
-- Default DB: 5432
-- Shard 0 primary: 5433
-- Shard 0 replica: 5434
-- Shard 1 primary: 5435
-- Shard 1 replica: 5436
-
-### Create the main cluster for the default DB
-
-Ubuntu usually already has a cluster on port 5432. You can reuse it for the default database.
+### Check the current cluster
 
 ```bash
-sudo -u postgres psql <<'SQL'
-CREATE USER merchifyuser WITH PASSWORD 'strongpassword';
-CREATE DATABASE merchify OWNER merchifyuser;
-ALTER USER merchifyuser WITH SUPERUSER;
-SQL
+sudo pg_lsclusters
 ```
 
-### Create the shard databases
+You will usually see a default cluster on port 5432.
+
+### Create additional clusters for shards and replicas
+
+Run these commands:
 
 ```bash
-sudo -u postgres psql <<'SQL'
-CREATE DATABASE merchify_shard_0 OWNER merchifyuser;
-CREATE DATABASE merchify_shard_1 OWNER merchifyuser;
-SQL
+sudo pg_createcluster 16 shard0 --start --port 5433
+sudo pg_createcluster 16 shard0_replica --start --port 5434
+sudo pg_createcluster 16 shard1 --start --port 5435
+sudo pg_createcluster 16 shard1_replica --start --port 5436
 ```
+
+Verify them:
+
+```bash
+sudo pg_lsclusters
+```
+
+You should now have clusters listening on ports 5432, 5433, 5434, 5435, and 5436.
 
 ---
 
-## 5. Create a primary-replica pair for shard 0
+## 6. Make the clusters listen on all interfaces
 
-This example creates a real streaming replica for shard 0.
+Each cluster uses its own configuration file.
 
-### Step A: Configure the primary
-
-Edit the primary configuration:
+For each cluster, update the config:
 
 ```bash
-sudo nano /etc/postgresql/15/main/postgresql.conf
+sudo sed -i "s/^#listen_addresses = 'localhost'/listen_addresses = '*' /" /etc/postgresql/16/main/postgresql.conf
+sudo sed -i "s/^#listen_addresses = 'localhost'/listen_addresses = '*' /" /etc/postgresql/16/shard0/postgresql.conf
+sudo sed -i "s/^#listen_addresses = 'localhost'/listen_addresses = '*' /" /etc/postgresql/16/shard0_replica/postgresql.conf
+sudo sed -i "s/^#listen_addresses = 'localhost'/listen_addresses = '*' /" /etc/postgresql/16/shard1/postgresql.conf
+sudo sed -i "s/^#listen_addresses = 'localhost'/listen_addresses = '*' /" /etc/postgresql/16/shard1_replica/postgresql.conf
 ```
 
-Add or update:
+If your file uses a different formatting, open the file and ensure the line is:
 
 ```conf
 listen_addresses = '*'
-wal_level = replica
-max_wal_senders = 10
-wal_keep_size = 64
-archive_mode = off
 ```
 
-Save and restart:
+Restart the clusters:
 
 ```bash
-sudo systemctl restart postgresql
+sudo pg_ctlcluster 16 main restart
+sudo pg_ctlcluster 16 shard0 restart
+sudo pg_ctlcluster 16 shard0_replica restart
+sudo pg_ctlcluster 16 shard1 restart
+sudo pg_ctlcluster 16 shard1_replica restart
 ```
 
-### Step B: Allow replica to connect
+---
 
-Edit the client authentication rules:
+## 7. Allow remote connections
+
+Edit the host-based authentication file for each cluster if needed.
 
 ```bash
-sudo nano /etc/postgresql/15/main/pg_hba.conf
+sudo nano /etc/postgresql/16/main/pg_hba.conf
 ```
 
 Add this line at the end:
 
 ```conf
-host replication replicator 0.0.0.0/0 scram-sha-256
+host all all 0.0.0.0/0 scram-sha-256
 ```
 
-Then create the replication user:
+Repeat the same change for the other cluster config files if you want to connect from outside the instance.
+
+Then restart the clusters again:
+
+```bash
+sudo pg_ctlcluster 16 main restart
+sudo pg_ctlcluster 16 shard0 restart
+sudo pg_ctlcluster 16 shard0_replica restart
+sudo pg_ctlcluster 16 shard1 restart
+sudo pg_ctlcluster 16 shard1_replica restart
+```
+
+---
+
+## 8. Create the databases and user
+
+Create a user and the databases for each endpoint.
 
 ```bash
 sudo -u postgres psql <<'SQL'
-CREATE ROLE replicator WITH REPLICATION LOGIN PASSWORD 'replicatorpass';
+CREATE USER merchifyuser WITH PASSWORD 'strongpassword';
+ALTER USER merchifyuser WITH SUPERUSER;
+CREATE DATABASE merchify OWNER merchifyuser;
+CREATE DATABASE merchify_shard_0 OWNER merchifyuser;
+CREATE DATABASE merchify_shard_1 OWNER merchifyuser;
 SQL
 ```
 
-### Step C: Create the replica
-
-On the same EC2 instance, create a new data directory for the replica:
+You can also create them per port if you want to be explicit:
 
 ```bash
-sudo mkdir -p /var/lib/postgresql/15/replica0
-sudo chown -R postgres:postgres /var/lib/postgresql/15/replica0
+sudo -u postgres psql -p 5432 -c "CREATE DATABASE merchify OWNER merchifyuser;"
+sudo -u postgres psql -p 5433 -c "CREATE DATABASE merchify_shard_0 OWNER merchifyuser;"
+sudo -u postgres psql -p 5434 -c "CREATE DATABASE merchify_shard_0 OWNER merchifyuser;"
+sudo -u postgres psql -p 5435 -c "CREATE DATABASE merchify_shard_1 OWNER merchifyuser;"
+sudo -u postgres psql -p 5436 -c "CREATE DATABASE merchify_shard_1 OWNER merchifyuser;"
 ```
 
-Run the base backup:
-
-```bash
-sudo -u postgres pg_basebackup -D /var/lib/postgresql/15/replica0 -Fp -X stream -R -S replica0 -C -h 127.0.0.1 -p 5432 -U replicator
-```
-
-Create a recovery file:
-
-```bash
-sudo sh -c 'echo "primary_conninfo = ''user=replicator password=replicatorpass host=127.0.0.1 port=5432''" > /var/lib/postgresql/15/replica0/postgresql.auto.conf'
-sudo sh -c 'touch /var/lib/postgresql/15/replica0/standby.signal'
-sudo chown -R postgres:postgres /var/lib/postgresql/15/replica0
-```
-
-Start the replica:
-
-```bash
-sudo -u postgres pg_ctl -D /var/lib/postgresql/15/replica0 -l /var/log/postgresql/replica0.log start
-```
-
-You now have a replica that can be reached on the same host using a different port if you configure it separately. For a learning setup, the easiest path is to keep the replica on the same EC2 machine and point the app to the replica's host and port.
-
-> If you want a more straightforward setup, you can skip full replication and simply use a second PostgreSQL server instance on a different port. That is enough for learning and testing the app’s routing.
+If `merchifyuser` already exists, you can skip the create user step.
 
 ---
 
-## 6. Repeat the same pattern for shard 1
+## 9. Verify the ports from the EC2 instance
 
-Repeat the same process for shard 1, using a second replica and a different port.
+Test each port locally:
 
-Suggested mapping:
+```bash
+psql -h 127.0.0.1 -p 5432 -U merchifyuser -d merchify -c "SELECT current_database();"
+psql -h 127.0.0.1 -p 5433 -U merchifyuser -d merchify_shard_0 -c "SELECT current_database();"
+psql -h 127.0.0.1 -p 5434 -U merchifyuser -d merchify_shard_0 -c "SELECT current_database();"
+psql -h 127.0.0.1 -p 5435 -U merchifyuser -d merchify_shard_1 -c "SELECT current_database();"
+psql -h 127.0.0.1 -p 5436 -U merchifyuser -d merchify_shard_1 -c "SELECT current_database();"
+```
 
-- Shard 0 primary: host = EC2 IP, port = 5433
-- Shard 0 replica: host = EC2 IP, port = 5434
-- Shard 1 primary: host = EC2 IP, port = 5435
-- Shard 1 replica: host = EC2 IP, port = 5436
+You should get a successful connection for each port.
 
 ---
 
-## 7. Update the app environment variables
+## 10. Update the application environment variables
 
-In your project, update the environment values so the app points to the EC2 instance.
+In your project, point the app to the EC2 host and these ports.
 
 Example:
 
@@ -237,7 +273,7 @@ No other code changes are required.
 
 ---
 
-## 8. Run the setup commands
+## 11. Run the Django setup commands
 
 From the project root:
 
@@ -255,16 +291,14 @@ python manage.py migrate --database=shard_1
 
 ---
 
-## 9. Test the behavior
-
-You can verify that user IDs are routed to different shards:
+## 12. Test the sharding behavior
 
 ```bash
 python manage.py shell
 ```
 
 ```python
-from api.sharding import get_shard_name, ShardingContext
+from api.sharding import get_shard_name
 print(get_shard_name(1))
 print(get_shard_name(2))
 ```
@@ -275,24 +309,19 @@ You should see:
 
 ---
 
-## 10. Useful troubleshooting tips
+## 13. Useful troubleshooting commands
 
 ### Check PostgreSQL status
 
 ```bash
+sudo pg_lsclusters
 sudo systemctl status postgresql
 ```
 
-### Check connections
+### Check listening ports
 
 ```bash
-sudo -u postgres psql -c "SELECT version();"
-```
-
-### Check if the replica is streaming
-
-```bash
-sudo -u postgres psql -c "SELECT * FROM pg_stat_wal_receiver;"
+ss -ltnp | grep postgres
 ```
 
 ### Test from your local machine
@@ -301,15 +330,16 @@ sudo -u postgres psql -c "SELECT * FROM pg_stat_wal_receiver;"
 psql -h YOUR_EC2_PUBLIC_IP -p 5433 -U merchifyuser -d merchify_shard_0
 ```
 
+### If a cluster fails to start
+
+```bash
+sudo journalctl -u postgresql
+```
+
 ---
 
-## Recommended learning path
+## Notes
 
-If you are just learning, the easiest path is:
+This setup uses separate PostgreSQL clusters on different ports as a practical learning environment. It is enough to test the app’s routing logic and replica endpoint configuration without needing RDS.
 
-1. Start with one EC2 instance
-2. Use one host and different ports for each database endpoint
-3. Point the env variables to those ports
-4. Verify sharding and replica routing with simple inserts and reads
-
-That gives you a realistic environment without needing RDS.
+If you want, I can also give you a follow-up guide for true streaming replication from one PostgreSQL 16 primary to a replica on EC2.
