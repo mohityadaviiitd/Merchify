@@ -30,7 +30,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         shard_name = get_shard_name(user.id)
         ShardingContext.set_user_id(user.id)
         try:
-            Cart.objects.using(shard_name).create(user=user)
+            # Use user_id to avoid cross-database User relation resolution
+            # when Cart is created in the shard database.
+            Cart.objects.using(shard_name).create(user_id=user.id)
         finally:
             ShardingContext.clear()
 
