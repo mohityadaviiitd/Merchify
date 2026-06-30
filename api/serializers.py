@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Category, Product, Order, OrderItem, Cart, CartItem
-from .sharding import ShardingContext
+from .sharding import ShardingContext, get_shard_name
 
 
 # User Serializers

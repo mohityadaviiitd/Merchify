@@ -5,6 +5,7 @@ This router directs read/write operations to the appropriate shard
 based on the sharding context (user_id).
 """
 
+from django.contrib.auth.models import User
 from api.sharding import ShardingContext, get_shard_name, get_replica_name
 
 
@@ -65,17 +66,16 @@ class ShardRouter:
         user_id_1 = getattr(obj1, 'user_id', None)
         user_id_2 = getattr(obj2, 'user_id', None)
 
-        if user_id_1 is None and hasattr(obj1, 'pk') and getattr(obj1, '__class__', None).__name__ == 'User':
+        if user_id_1 is None and isinstance(obj1, User):
             user_id_1 = obj1.pk
-        if user_id_2 is None and hasattr(obj2, 'pk') and getattr(obj2, '__class__', None).__name__ == 'User':
+        if user_id_2 is None and isinstance(obj2, User):
             user_id_2 = obj2.pk
 
         if user_id_1 and user_id_2:
             return get_shard_name(user_id_1) == get_shard_name(user_id_2)
 
         # If one side is auth.User and the other is a sharded object, allow it.
-        if (user_id_1 and getattr(obj2, '__class__', None).__name__ == 'User') or (
-            user_id_2 and getattr(obj1, '__class__', None).__name__ == 'User'):
+        if (user_id_1 and isinstance(obj2, User)) or (user_id_2 and isinstance(obj1, User)):
             return True
 
         return None  # Fallback to default routing behavior
