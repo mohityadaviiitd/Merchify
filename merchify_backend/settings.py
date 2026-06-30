@@ -90,6 +90,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'api.middleware.ShardingMiddleware',  # Sharding context middleware
 ]
 
 ROOT_URLCONF = 'merchify_backend.urls'
@@ -114,9 +115,10 @@ WSGI_APPLICATION = 'merchify_backend.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
+# Sharded database configuration with 2 shards and 1 read replica each
 
 DATABASES = {
+    # Default database (for system/auth tables that aren't sharded)
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.environ.get('POSTGRES_DB', 'merchify'),
@@ -124,8 +126,47 @@ DATABASES = {
         'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'strongpassword'),
         'HOST': os.environ.get('DB_HOST', 'localhost'),
         'PORT': os.environ.get('DB_PORT', '5432'),
-    }
+    },
+    # Shard 0 - Primary (even user IDs: user_id % 2 == 0)
+    'shard_0': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('SHARD_0_DB', 'merchify_shard_0'),
+        'USER': os.environ.get('SHARD_0_USER', 'merchifyuser'),
+        'PASSWORD': os.environ.get('SHARD_0_PASSWORD', 'strongpassword'),
+        'HOST': os.environ.get('SHARD_0_HOST', 'localhost'),
+        'PORT': os.environ.get('SHARD_0_PORT', '5432'),
+    },
+    # Shard 0 - Read Replica
+    'shard_0_replica': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('SHARD_0_REPLICA_DB', 'merchify_shard_0'),
+        'USER': os.environ.get('SHARD_0_REPLICA_USER', 'merchifyuser'),
+        'PASSWORD': os.environ.get('SHARD_0_REPLICA_PASSWORD', 'strongpassword'),
+        'HOST': os.environ.get('SHARD_0_REPLICA_HOST', 'localhost'),
+        'PORT': os.environ.get('SHARD_0_REPLICA_PORT', '5432'),
+    },
+    # Shard 1 - Primary (odd user IDs: user_id % 2 == 1)
+    'shard_1': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('SHARD_1_DB', 'merchify_shard_1'),
+        'USER': os.environ.get('SHARD_1_USER', 'merchifyuser'),
+        'PASSWORD': os.environ.get('SHARD_1_PASSWORD', 'strongpassword'),
+        'HOST': os.environ.get('SHARD_1_HOST', 'localhost'),
+        'PORT': os.environ.get('SHARD_1_PORT', '5432'),
+    },
+    # Shard 1 - Read Replica
+    'shard_1_replica': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('SHARD_1_REPLICA_DB', 'merchify_shard_1'),
+        'USER': os.environ.get('SHARD_1_REPLICA_USER', 'merchifyuser'),
+        'PASSWORD': os.environ.get('SHARD_1_REPLICA_PASSWORD', 'strongpassword'),
+        'HOST': os.environ.get('SHARD_1_REPLICA_HOST', 'localhost'),
+        'PORT': os.environ.get('SHARD_1_REPLICA_PORT', '5432'),
+    },
 }
+
+# Database router for sharding
+DATABASE_ROUTERS = ['api.routers.ShardRouter']
 
 # Use SQLite for local testing
 # DATABASES = {

@@ -1,0 +1,154 @@
+version: '3.8'
+
+services:
+  # Default database
+  postgres_default:
+    image: postgres:15-alpine
+    container_name: merchify_default
+    environment:
+      POSTGRES_DB: merchify
+      POSTGRES_USER: merchifyuser
+      POSTGRES_PASSWORD: strongpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_default_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U merchifyuser -d merchify"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Shard 0 - Primary
+  postgres_shard_0:
+    image: postgres:15-alpine
+    container_name: merchify_shard_0
+    environment:
+      POSTGRES_DB: merchify_shard_0
+      POSTGRES_USER: merchifyuser
+      POSTGRES_PASSWORD: strongpassword
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_shard_0_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U merchifyuser -d merchify_shard_0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Shard 0 - Read Replica
+  postgres_shard_0_replica:
+    image: postgres:15-alpine
+    container_name: merchify_shard_0_replica
+    environment:
+      POSTGRES_DB: merchify_shard_0
+      POSTGRES_USER: merchifyuser
+      POSTGRES_PASSWORD: strongpassword
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_shard_0_replica_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U merchifyuser -d merchify_shard_0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      postgres_shard_0:
+        condition: service_healthy
+
+  # Shard 1 - Primary
+  postgres_shard_1:
+    image: postgres:15-alpine
+    container_name: merchify_shard_1
+    environment:
+      POSTGRES_DB: merchify_shard_1
+      POSTGRES_USER: merchifyuser
+      POSTGRES_PASSWORD: strongpassword
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_shard_1_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U merchifyuser -d merchify_shard_1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Shard 1 - Read Replica
+  postgres_shard_1_replica:
+    image: postgres:15-alpine
+    container_name: merchify_shard_1_replica
+    environment:
+      POSTGRES_DB: merchify_shard_1
+      POSTGRES_USER: merchifyuser
+      POSTGRES_PASSWORD: strongpassword
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres_shard_1_replica_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U merchifyuser -d merchify_shard_1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      postgres_shard_1:
+        condition: service_healthy
+
+  # PgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: merchify_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@merchify.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres_default
+      - postgres_shard_0
+      - postgres_shard_0_replica
+      - postgres_shard_1
+      - postgres_shard_1_replica
+
+volumes:
+  postgres_default_data:
+  postgres_shard_0_data:
+  postgres_shard_0_replica_data:
+  postgres_shard_1_data:
+  postgres_shard_1_replica_data:
+
+networks:
+  default:
+    name: merchify_network
+
+# Usage:
+# 
+# Start all databases:
+#   docker-compose -f docker-compose.sharding.yml up -d
+#
+# Stop all databases:
+#   docker-compose -f docker-compose.sharding.yml down
+#
+# View logs:
+#   docker-compose -f docker-compose.sharding.yml logs -f
+#
+# Access PgAdmin: http://localhost:5050
+#   Email: admin@merchify.com
+#   Password: admin
+#
+# Then add servers in PgAdmin with these settings:
+#   Name: default
+#   Host: postgres_default
+#   Port: 5432
+#   User: merchifyuser
+#   Password: strongpassword
+#
+# Database Ports:
+#   Default:           localhost:5432
+#   Shard 0:           localhost:5433
+#   Shard 0 Replica:   localhost:5434
+#   Shard 1:           localhost:5435
+#   Shard 1 Replica:   localhost:5436
