@@ -43,7 +43,15 @@ class Order(models.Model):
         ('cancelled', 'Cancelled'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
+    # The User record lives in the default auth database, while orders are
+    # sharded across separate databases. Disable DB-level FK constraints so
+    # Django can manage the relation at the ORM level without cross-db FK errors.
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='orders',
+        db_constraint=False,
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     payment_id = models.CharField(max_length=255, blank=True, null=True)
@@ -70,7 +78,13 @@ class OrderItem(models.Model):
 
 # Cart Model
 class Cart(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='cart')
+    # The User record lives in default auth DB; cart records are sharded.
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='cart',
+        db_constraint=False,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
