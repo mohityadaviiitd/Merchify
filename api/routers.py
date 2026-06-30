@@ -32,10 +32,8 @@ class ShardRouter:
             return None  # Use default database
         
         # Route to replica for read operations (read scaling)
-        # replica = get_replica_name(user_id)
-        # return replica if replica else None
-        shard = get_shard_name(user_id)
-        return shard if shard else None
+        replica = get_replica_name(user_id)
+        return replica if replica else None
 
     def db_for_write(self, model, **hints):
         """
