@@ -64,6 +64,9 @@ This will start three containers: Postgres (db), Django backend (backend), and N
 
 ## Deployment (How this app is deployed)
 
+### Sharding on EC2
+
+If you want to test shard and replica behavior on an EC2 instance instead of RDS, see [EC2_SHARDING_GUIDE.md](EC2_SHARDING_GUIDE.md).
 
 1. **Create an AWS EC2 instance** (Amazon Linux 2 recommended).
 2. **Install Docker & Docker Compose** on Amazon Linux:
