@@ -56,15 +56,29 @@ class ShardRouter:
 
     def allow_relation(self, obj1, obj2, **hints):
         """
-        Allow relations if both objects are in the same shard.
+        Allow relations between auth.User and sharded objects.
+
+        If either object is a sharded model with a user_id field, use that
+        user_id to determine the shard. If one side is auth.User, allow the
+        relation when the User PK matches the sharded object's user_id.
         """
-        user_id_1 = getattr(obj1, 'user_id', None) or ShardingContext.get_user_id()
-        user_id_2 = getattr(obj2, 'user_id', None) or ShardingContext.get_user_id()
-        
+        user_id_1 = getattr(obj1, 'user_id', None)
+        user_id_2 = getattr(obj2, 'user_id', None)
+
+        if user_id_1 is None and hasattr(obj1, 'pk') and getattr(obj1, '__class__', None).__name__ == 'User':
+            user_id_1 = obj1.pk
+        if user_id_2 is None and hasattr(obj2, 'pk') and getattr(obj2, '__class__', None).__name__ == 'User':
+            user_id_2 = obj2.pk
+
         if user_id_1 and user_id_2:
             return get_shard_name(user_id_1) == get_shard_name(user_id_2)
-        
-        return None  # Allow if we can't determine
+
+        # If one side is auth.User and the other is a sharded object, allow it.
+        if (user_id_1 and getattr(obj2, '__class__', None).__name__ == 'User') or (
+            user_id_2 and getattr(obj1, '__class__', None).__name__ == 'User'):
+            return True
+
+        return None  # Fallback to default routing behavior
 
     def allow_migrate(self, db, app_label, model_name=None, **hints):
         """

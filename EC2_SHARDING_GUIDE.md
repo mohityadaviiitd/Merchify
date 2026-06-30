@@ -289,10 +289,17 @@ sudo docker-compose exec backend python manage.py setup_shards --check
 sudo docker-compose exec backend python manage.py setup_shards --migrate
 ```
 
-If needed, run migrations per database:
+The `setup_shards --migrate` command migrates:
+- `default`
+- `shard_0`
+- `shard_1`
+- `shard_0_replica`
+- `shard_1_replica`
+
+If you prefer to run migrations manually per database, include `default` as well:
 
 ```bash
-# sudo docker-compose run --rm backend python manage.py migrate
+sudo docker-compose exec backend python manage.py migrate --database=default
 sudo docker-compose exec backend python manage.py migrate --database=shard_0
 sudo docker-compose exec backend python manage.py migrate --database=shard_1
 ```

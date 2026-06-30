@@ -27,9 +27,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             user.is_superuser = True
             user.save()
 
+        shard_name = get_shard_name(user.id)
         ShardingContext.set_user_id(user.id)
         try:
-            Cart.objects.create(user=user)
+            Cart.objects.using(shard_name).create(user=user)
         finally:
             ShardingContext.clear()
 
