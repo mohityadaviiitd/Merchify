@@ -88,7 +88,7 @@ from .serializers import (
     CartSerializer,
     CartItemSerializer,
 )
-from .sharding import ShardingContext, get_shard_name, log_shard_operation
+from .sharding import ShardingContext, get_shard_name
 
 
 # User Authentication Views
