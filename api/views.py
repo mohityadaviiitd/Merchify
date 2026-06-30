@@ -17,6 +17,10 @@ from django.conf import settings
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def webhook(request):
+    """
+    Stripe webhook handler for payment completion.
+    Handles cross-shard order lookup by checking each shard.
+    """
     payload = request.body
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
     endpoint_secret = getattr(settings, 'STRIPE_WEBHOOK_SECRET', None)
@@ -36,13 +40,31 @@ def webhook(request):
         order_id = session.get('metadata', {}).get('order_id')
         if order_id:
             from .models import Order
-            try:
-                order = Order.objects.get(id=order_id)
-                order.status = 'completed'
-                order.payment_id = session.get('payment_intent')
-                order.save()
-            except Order.DoesNotExist:
-                pass
+            from api.sharding import SHARD_NAMES
+            
+            # Try to find order in each shard
+            order_found = False
+            for shard_name in SHARD_NAMES:
+                try:
+                    order = Order.objects.using(shard_name).get(id=order_id)
+                    order.status = 'completed'
+                    order.payment_id = session.get('payment_intent')
+                    order.save(using=shard_name)
+                    order_found = True
+                    break
+                except Order.DoesNotExist:
+                    continue
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Error updating order {order_id} in {shard_name}: {e}")
+                    continue
+            
+            if not order_found:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Order {order_id} not found in any shard")
+    
     return Response({'status': 'success'})
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
@@ -66,6 +88,7 @@ from .serializers import (
     CartSerializer,
     CartItemSerializer,
 )
+from .sharding import ShardingContext, get_shard_name, log_shard_operation
 
 
 # User Authentication Views
@@ -230,73 +253,100 @@ class CartViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def my_cart(self, request):
-        cart, _ = Cart.objects.get_or_create(user=request.user)
-        serializer = CartSerializer(cart)
-        return Response(serializer.data)
+        """Get user's cart (uses correct shard automatically)."""
+        user_id = request.user.id
+        ShardingContext.set_user_id(user_id)
+        try:
+            cart, _ = Cart.objects.get_or_create(user=request.user)
+            serializer = CartSerializer(cart)
+            return Response(serializer.data)
+        finally:
+            ShardingContext.clear()
 
     @action(detail=False, methods=['post'])
     def add_item(self, request):
-        cart, _ = Cart.objects.get_or_create(user=request.user)
-        product_id = request.data.get('product_id')
-        quantity = int(request.data.get('quantity', 1))
-
+        """Add item to user's cart (uses correct shard automatically)."""
+        user_id = request.user.id
+        ShardingContext.set_user_id(user_id)
+        
         try:
-            product = Product.objects.get(id=product_id)
-        except Product.DoesNotExist:
-            return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
+            cart, _ = Cart.objects.get_or_create(user=request.user)
+            product_id = request.data.get('product_id')
+            quantity = int(request.data.get('quantity', 1))
 
-        # Mark product as inactive if stock is zero
-        if product.stock == 0:
-            product.is_active = False
-            product.save()
-            return Response({'error': 'Product is out of stock and has been marked inactive.'}, status=status.HTTP_410_GONE)
+            try:
+                product = Product.objects.get(id=product_id)
+            except Product.DoesNotExist:
+                return Response({'error': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        cart_item, created = CartItem.objects.get_or_create(
-            cart=cart,
-            product=product,
-            defaults={'quantity': min(quantity, product.stock)}
-        )
-        if not created:
-            new_qty = cart_item.quantity + quantity
-            if new_qty > product.stock:
-                cart_item.quantity = product.stock
-            else:
-                cart_item.quantity = new_qty
-            cart_item.save()
-
-        serializer = CartSerializer(cart)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['post'])
-    def remove_item(self, request):
-        cart_item_id = request.data.get('cart_item_id')
-        CartItem.objects.filter(id=cart_item_id).delete()
-        cart, _ = Cart.objects.get_or_create(user=request.user)
-        serializer = CartSerializer(cart)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['post'])
-    def update_item(self, request):
-        cart_item_id = request.data.get('cart_item_id')
-        quantity = int(request.data.get('quantity', 1))
-        try:
-            cart_item = CartItem.objects.get(id=cart_item_id)
-            product = cart_item.product
             # Mark product as inactive if stock is zero
             if product.stock == 0:
                 product.is_active = False
                 product.save()
-                cart_item.delete()
                 return Response({'error': 'Product is out of stock and has been marked inactive.'}, status=status.HTTP_410_GONE)
-            # Enforce max quantity as product stock
-            cart_item.quantity = min(quantity, product.stock)
-            cart_item.save()
-        except CartItem.DoesNotExist:
-            return Response({'error': 'Cart item not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        cart, _ = Cart.objects.get_or_create(user=request.user)
-        serializer = CartSerializer(cart)
-        return Response(serializer.data)
+            cart_item, created = CartItem.objects.get_or_create(
+                cart=cart,
+                product=product,
+                defaults={'quantity': min(quantity, product.stock)}
+            )
+            if not created:
+                new_qty = cart_item.quantity + quantity
+                if new_qty > product.stock:
+                    cart_item.quantity = product.stock
+                else:
+                    cart_item.quantity = new_qty
+                cart_item.save()
+
+            serializer = CartSerializer(cart)
+            return Response(serializer.data)
+        finally:
+            ShardingContext.clear()
+
+    @action(detail=False, methods=['post'])
+    def remove_item(self, request):
+        """Remove item from user's cart (uses correct shard automatically)."""
+        user_id = request.user.id
+        ShardingContext.set_user_id(user_id)
+        
+        try:
+            cart_item_id = request.data.get('cart_item_id')
+            CartItem.objects.filter(id=cart_item_id).delete()
+            cart, _ = Cart.objects.get_or_create(user=request.user)
+            serializer = CartSerializer(cart)
+            return Response(serializer.data)
+        finally:
+            ShardingContext.clear()
+
+    @action(detail=False, methods=['post'])
+    def update_item(self, request):
+        """Update cart item quantity (uses correct shard automatically)."""
+        user_id = request.user.id
+        ShardingContext.set_user_id(user_id)
+        
+        try:
+            cart_item_id = request.data.get('cart_item_id')
+            quantity = int(request.data.get('quantity', 1))
+            try:
+                cart_item = CartItem.objects.get(id=cart_item_id)
+                product = cart_item.product
+                # Mark product as inactive if stock is zero
+                if product.stock == 0:
+                    product.is_active = False
+                    product.save()
+                    cart_item.delete()
+                    return Response({'error': 'Product is out of stock and has been marked inactive.'}, status=status.HTTP_410_GONE)
+                # Enforce max quantity as product stock
+                cart_item.quantity = min(quantity, product.stock)
+                cart_item.save()
+            except CartItem.DoesNotExist:
+                return Response({'error': 'Cart item not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            cart, _ = Cart.objects.get_or_create(user=request.user)
+            serializer = CartSerializer(cart)
+            return Response(serializer.data)
+        finally:
+            ShardingContext.clear()
 
 
 # Order ViewSet
@@ -305,114 +355,149 @@ class OrderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        if self.request.user.is_staff:
+        """Get queryset for authenticated user's shard."""
+        user = self.request.user
+        
+        if user.is_staff:
+            # Admin can query all orders (across all shards)
+            # Note: This would typically be expensive for cross-shard queries
             return Order.objects.all()
-        return Order.objects.filter(user=self.request.user)
+        
+        # Regular user: set shard context and get their orders
+        ShardingContext.set_user_id(user.id)
+        return Order.objects.filter(user=user)
 
     def create(self, request):
-        cart = Cart.objects.get(user=request.user)
-        cart_items = cart.items.all()
+        """Create order from user's cart (uses correct shard automatically)."""
+        user_id = request.user.id
+        ShardingContext.set_user_id(user_id)
+        
+        try:
+            cart = Cart.objects.get(user=request.user)
+            cart_items = cart.items.all()
 
-        if not cart_items.exists():
-            return Response({'error': 'Cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
+            if not cart_items.exists():
+                return Response({'error': 'Cart is empty'}, status=status.HTTP_400_BAD_REQUEST)
 
-        total_price = sum(item.product.price * item.quantity for item in cart_items)
+            total_price = sum(item.product.price * item.quantity for item in cart_items)
 
-        order = Order.objects.create(
-            user=request.user,
-            total_price=total_price,
-            status='pending'
-        )
-
-        for item in cart_items:
-            OrderItem.objects.create(
-                order=order,
-                product=item.product,
-                quantity=item.quantity,
-                price=item.product.price
+            order = Order.objects.create(
+                user=request.user,
+                total_price=total_price,
+                status='pending'
             )
-            # Update product stock and mark inactive if stock is 0
-            item.product.stock -= item.quantity
-            if item.product.stock <= 0:
-                item.product.stock = 0
-                item.product.is_active = False
-            item.product.save()
 
-        cart_items.delete()
+            for item in cart_items:
+                OrderItem.objects.create(
+                    order=order,
+                    product=item.product,
+                    quantity=item.quantity,
+                    price=item.product.price
+                )
+                # Update product stock and mark inactive if stock is 0
+                item.product.stock -= item.quantity
+                if item.product.stock <= 0:
+                    item.product.stock = 0
+                    item.product.is_active = False
+                item.product.save()
 
-        serializer = self.get_serializer(order)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+            cart_items.delete()
+
+            serializer = self.get_serializer(order)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        finally:
+            ShardingContext.clear()
 
     @action(detail=True, methods=['post'])
     def checkout(self, request, pk=None):
-        order = self.get_object()
-        stripe_token = request.data.get('stripe_token')
-
+        """Process payment for order using Stripe Charges API (legacy)."""
+        user_id = request.user.id
+        ShardingContext.set_user_id(user_id)
+        
         try:
-            charge = stripe.Charge.create(
-                amount=int(order.total_price * 100),  # Stripe expects paise for INR
-                currency='inr',
-                source=stripe_token,
-                description=f'Order {order.id}'
-            )
-            order.payment_id = charge.id
-            order.status = 'completed'
-            order.save()
+            order = self.get_object()
+            stripe_token = request.data.get('stripe_token')
 
-            return Response({
-                'message': 'Payment successful',
-                'order': OrderSerializer(order).data
-            })
-        except stripe.error.StripeError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                charge = stripe.Charge.create(
+                    amount=int(order.total_price * 100),  # Stripe expects paise for INR
+                    currency='inr',
+                    source=stripe_token,
+                    description=f'Order {order.id}'
+                )
+                order.payment_id = charge.id
+                order.status = 'completed'
+                order.save()
+
+                return Response({
+                    'message': 'Payment successful',
+                    'order': OrderSerializer(order).data
+                })
+            except stripe.error.StripeError as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        finally:
+            ShardingContext.clear()
 
     @action(detail=True, methods=['post'])
     def create_checkout_session(self, request, pk=None):
         """Create a Stripe Checkout Session and return the session URL for redirecting the browser."""
-        order = self.get_object()
-        # Build line items for Stripe Checkout
-        line_items = []
-        for item in order.items.all():
-            line_items.append({
-                'price_data': {
-                    'currency': 'inr',
-                    'product_data': {
-                        'name': item.product.name,
-                    },
-                    'unit_amount': int(item.price * 100),  # paise for INR
-                },
-                'quantity': item.quantity,
-            })
-
-        frontend_base = getattr(settings, 'FRONTEND_BASE_URL')
-        success_url = f"{frontend_base}/checkout-success?session_id={{CHECKOUT_SESSION_ID}}"
-        cancel_url = f"{frontend_base}/checkout-cancel"
-
+        user_id = request.user.id
+        ShardingContext.set_user_id(user_id)
+        
         try:
-            session = stripe.checkout.Session.create(
-                payment_method_types=['card'],
-                line_items=line_items,
-                mode='payment',
-                success_url=success_url,
-                cancel_url=cancel_url,
-                metadata={'order_id': str(order.id)}
-            )
-            return Response({'url': session.url})
-        except stripe.error.StripeError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            order = self.get_object()
+            # Build line items for Stripe Checkout
+            line_items = []
+            for item in order.items.all():
+                line_items.append({
+                    'price_data': {
+                        'currency': 'inr',
+                        'product_data': {
+                            'name': item.product.name,
+                        },
+                        'unit_amount': int(item.price * 100),  # paise for INR
+                    },
+                    'quantity': item.quantity,
+                })
+
+            frontend_base = getattr(settings, 'FRONTEND_BASE_URL')
+            success_url = f"{frontend_base}/checkout-success?session_id={{CHECKOUT_SESSION_ID}}"
+            cancel_url = f"{frontend_base}/checkout-cancel"
+
+            try:
+                session = stripe.checkout.Session.create(
+                    payment_method_types=['card'],
+                    line_items=line_items,
+                    mode='payment',
+                    success_url=success_url,
+                    cancel_url=cancel_url,
+                    metadata={'order_id': str(order.id)}
+                )
+                return Response({'url': session.url})
+            except stripe.error.StripeError as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        finally:
+            ShardingContext.clear()
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
-        order = self.get_object()
-        if order.status == 'pending':
-            order.status = 'cancelled'
-            order.save()
-            # Restore product stock
-            for item in order.items.all():
-                item.product.stock += item.quantity
-                item.product.save()
-            return Response(OrderSerializer(order).data)
-        return Response({'error': 'Cannot cancel completed order'}, status=status.HTTP_400_BAD_REQUEST)
+        """Cancel a pending order and restore product stock."""
+        user_id = request.user.id
+        ShardingContext.set_user_id(user_id)
+        
+        try:
+            order = self.get_object()
+            if order.status == 'pending':
+                order.status = 'cancelled'
+                order.save()
+                # Restore product stock
+                for item in order.items.all():
+                    item.product.stock += item.quantity
+                    item.product.save()
+                return Response(OrderSerializer(order).data)
+            return Response({'error': 'Cannot cancel completed order'}, status=status.HTTP_400_BAD_REQUEST)
+        finally:
+            ShardingContext.clear()
 
 
 # Dashboard/Analytics Views
@@ -422,43 +507,100 @@ def dashboard_stats(request):
     if not request.user.is_staff:
         return Response({'error': 'Only admin can access'}, status=status.HTTP_403_FORBIDDEN)
 
-    # Total stats
+    # Global stats (from default database)
     total_products = Product.objects.count()
     total_users = User.objects.count()
-    total_orders = Order.objects.count()
-    total_revenue = Order.objects.filter(status__in=['pending', 'completed']).aggregate(Sum('total_price'))['total_price__sum'] or 0
 
-    # Order status breakdown
-    order_status = Order.objects.values('status').annotate(count=Count('id'))
+    # Sharded stats - Query all shards and aggregate
+    from api.sharding import SHARD_NAMES
+    
+    total_orders = 0
+    total_revenue = 0
+    all_order_status = {}
+    all_top_products = {}
+    
+    # Aggregate stats across all shards
+    for shard_name in SHARD_NAMES:
+        # Count orders in this shard
+        shard_orders = Order.objects.using(shard_name).count()
+        total_orders += shard_orders
+        
+        # Sum revenue in this shard
+        shard_revenue = Order.objects.using(shard_name).filter(
+            status__in=['pending', 'completed']
+        ).aggregate(Sum('total_price'))['total_price__sum'] or 0
+        total_revenue += shard_revenue
+        
+        # Aggregate order status breakdown
+        shard_status = Order.objects.using(shard_name).values('status').annotate(count=Count('id'))
+        for status_item in shard_status:
+            status_val = status_item['status']
+            if status_val not in all_order_status:
+                all_order_status[status_val] = 0
+            all_order_status[status_val] += status_item['count']
+        
+        # Aggregate top products across shards
+        try:
+            shard_top = Order.objects.using(shard_name).values(
+                'items__product_id',
+                'items__product__name',
+                'items__product__price'
+            ).annotate(
+                total_sold=Sum('items__quantity')
+            ).order_by('-total_sold')
+            
+            for item in shard_top:
+                product_key = item['items__product_id']
+                if product_key not in all_top_products:
+                    all_top_products[product_key] = {
+                        'name': item['items__product__name'],
+                        'price': item['items__product__price'],
+                        'total_sold': 0
+                    }
+                all_top_products[product_key]['total_sold'] += item['total_sold']
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error aggregating top products from {shard_name}: {e}")
+    
+    # Convert order_status dict to list format
+    order_status_list = [{'status': k, 'count': v} for k, v in all_order_status.items()]
+    
+    # Sort and limit top products to 10
+    top_products_list = sorted(
+        all_top_products.values(),
+        key=lambda x: x['total_sold'],
+        reverse=True
+    )[:10]
 
-    # Category breakdown
+    # Category breakdown (from default database - shared across shards)
     category_breakdown = Category.objects.annotate(
         product_count=Count('products'),
         total_sold=Sum('products__orderitem__quantity')
     ).values('name', 'product_count', 'total_sold')
 
-    # Top selling products
-    top_products = Product.objects.annotate(
-        total_sold=Sum('orderitem__quantity')
-    ).order_by('-total_sold')[:10].values('name', 'total_sold', 'price')
-
-    # Revenue trend (last 7 days)
+    # Revenue trend (last 7 days) - aggregate from all shards
     last_7_days = []
     for i in range(7):
         date = (datetime.now() - timedelta(days=i)).date()
-        revenue = Order.objects.filter(
-            status='completed',
-            created_at__date=date
-        ).aggregate(Sum('total_price'))['total_price__sum'] or 0
-        last_7_days.append({'date': date, 'revenue': float(revenue)})
+        daily_revenue = 0
+        
+        for shard_name in SHARD_NAMES:
+            shard_daily = Order.objects.using(shard_name).filter(
+                status='completed',
+                created_at__date=date
+            ).aggregate(Sum('total_price'))['total_price__sum'] or 0
+            daily_revenue += shard_daily
+        
+        last_7_days.append({'date': date, 'revenue': float(daily_revenue)})
 
     return Response({
         'total_products': total_products,
         'total_users': total_users,
         'total_orders': total_orders,
         'total_revenue': float(total_revenue),
-        'order_status': list(order_status),
+        'order_status': order_status_list,
         'category_breakdown': list(category_breakdown),
-        'top_products': list(top_products),
+        'top_products': top_products_list,
         'revenue_trend': last_7_days
     })
