@@ -115,14 +115,28 @@ WSGI_APPLICATION = 'merchify_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+REDIS_HOST = config('REDIS_HOST', default='localhost')
+REDIS_PORT = config('REDIS_PORT', default='6379')
+REDIS_PASSWORD = config('REDIS_PASSWORD', default='')
+REDIS_DB = config('REDIS_DB', default='1', cast=int)
+REDIS_MAX_CONNECTIONS = config('REDIS_MAX_CONNECTIONS', default=50, cast=int)
+REDIS_URL = config('REDIS_URL', default=None)
+
+if REDIS_URL:
+    REDIS_LOCATION = REDIS_URL
+elif REDIS_PASSWORD:
+    REDIS_LOCATION = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+else:
+    REDIS_LOCATION = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"redis://:{os.environ.get('REDIS_PASSWORD', '')}@{os.environ.get('REDIS_HOST', 'localhost')}:{os.environ.get('REDIS_PORT', '6379')}/1",
+        "LOCATION": REDIS_LOCATION,
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "CONNECTION_POOL_KWARGS": {
-                "max_connections": int(os.environ.get("REDIS_MAX_CONNECTIONS", 50))
+                "max_connections": REDIS_MAX_CONNECTIONS,
             },
         }
     }

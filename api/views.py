@@ -130,12 +130,12 @@ class ProductViewSet(viewsets.ModelViewSet):
     parser_classes = (MultiPartParser, FormParser)
 
     def list(self, request, *args, **kwargs):
-        cache_key= "products:all_list"
-        cached_data= cache.get(cache_key)
-        if cached_data:
+        cache_key = "products:all_list"
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
             return Response(cached_data)
-        response= super().list(request, *args, **kwargs)
-        cache.set(cache_key, response.data, timeout= 600)
+        response = super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout=600)
         return response
         
     def get_permissions(self):
@@ -212,6 +212,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
+        cache.delete("products:all_list")
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
