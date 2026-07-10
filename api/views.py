@@ -130,12 +130,28 @@ class ProductViewSet(viewsets.ModelViewSet):
     parser_classes = (MultiPartParser, FormParser)
 
     def list(self, request, *args, **kwargs):
+    # 1. Check if the method is actually being triggered
+        print("DEBUG 1: Entering the custom list method!")
+        
         cache_key = "products:all_list"
         cached_data = cache.get(cache_key)
+        
         if cached_data is not None:
+            print("DEBUG 2: Cache Hit! Returning data from Redis.")
             return Response(cached_data)
+            
+        print("DEBUG 3: Cache Miss! Fetching fresh data from Database.")
         response = super().list(request, *args, **kwargs)
-        cache.set(cache_key, response.data, timeout=600)
+        
+        # 2. Inspect exactly what data Django is trying to save
+        print(f"DEBUG 4: Data payload to save: {type(response.data)}")
+        
+        try:
+            cache.set(cache_key, response.data, timeout=600)
+            print("DEBUG 5: Successfully executed cache.set() without errors!")
+        except Exception as cache_error:
+            print(f"DEBUG 6: Redis write failed! Error: {cache_error}")
+            
         return response
         
     def get_permissions(self):
