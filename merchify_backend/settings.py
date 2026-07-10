@@ -115,6 +115,22 @@ WSGI_APPLICATION = 'merchify_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"redis://:{os.environ.get('REDIS_PASSWORD', '')}@{os.environ.get('REDIS_HOST', 'localhost')}:{os.environ.get('REDIS_PORT', '6379')}/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CONNECTION_POOL_KWARGS": {
+                "max_connections": int(os.environ.get("REDIS_MAX_CONNECTIONS", 50))
+            },
+        }
+    }
+}
+
+# Optional: Set default cache timeout to 15 minutes (900 seconds)
+CACHE_MIDDLEWARE_SECONDS = int(os.environ.get("CACHE_MIDDLEWARE_SECONDS", 900))
+
 
 DATABASES = {
     'default': {

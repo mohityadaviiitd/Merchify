@@ -9,6 +9,7 @@ from django.db.models import Count, Sum, Q
 from datetime import datetime, timedelta
 import stripe
 from django.conf import settings
+from django.core.cache import cache
 
 # ...existing code...
 
@@ -128,6 +129,15 @@ class ProductViewSet(viewsets.ModelViewSet):
     from rest_framework.parsers import MultiPartParser, FormParser
     parser_classes = (MultiPartParser, FormParser)
 
+    def list(self, request, *args, **kwargs):
+        cache_key= "products:all_list"
+        cached_data= cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data)
+        response= super().list(request, *args, **kwargs)
+        cache.set(cache_key, response.data, timeout= 600)
+        return response
+        
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [AllowAny()]
